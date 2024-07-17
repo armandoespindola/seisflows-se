@@ -549,11 +549,12 @@ class SeisFlows:
             written, path_docstrings = [], []
             f = open(self._args.parameter_file, "a")
             # Write all module parameters and corresponding docstrings
+            f.write(f"source_encoding: False\n")
             for module in modules:
                 if not module:
                     continue
                 docstring = split_module_docstring(module, 0)
-                f.write(f"# {'=' * 77}\n#{docstring}\n# {'=' * 77}\n")
+                #f.write(f"# {'=' * 77}\n#{docstring}\n# {'=' * 77}\n")
                 # Write the parameters, make sure to not have the same one twice
                 for key, val in vars(module).items():
                     # Skip already written, hidden vars, and paths
@@ -562,8 +563,10 @@ class SeisFlows:
                     # YAML wants NoneType to be 'null'
                     if val is None:
                         val = "null"
-                    f.write(f"{key}: {val}\n")
-                    written.append(key)
+                    #f.write(f"{key}: {val}\n")
+                    #written.append(key)
+
+            
 
             # Write docstrings for publically accesible path structure
             f.write(f"# {'=' * 77}\n")
@@ -732,7 +735,7 @@ class SeisFlows:
         if check == "y":
             pars = load_yaml(self._args.parameter_file)
             for name in ["scratch", "output", "log_files", "state_file", 
-                         "output_log"]:
+                         "output_log", "eval_grad"]:
                 path = f"path_{name}"
                 if path in pars:
                     unix.rm(pars[path])
@@ -1115,7 +1118,7 @@ class SeisFlows:
         plot_model.coordinates = base_model.coordinates
         # plot2d has internal check for acceptable parameter value
         plot_model.plot2d(parameter=parameter, cmap=cmap, show=True,
-                          title=f"{name} // {parameter.upper()}", save=savefig)
+                          title=f"{name} // {parameter}", save=savefig)
 
     def reset(self, choice=None, **kwargs):
         """

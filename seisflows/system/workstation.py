@@ -3,7 +3,7 @@
 The `workstation` class is the foundational `System` module in SeisFlows,
 it provides utilities for submitting jobs in SERIAL on a small-scale machine,
 e.g., a workstation or a laptop. All other `System` classes build on this class.
-"""
+s"""
 import os
 import sys
 import subprocess
@@ -167,7 +167,10 @@ class Workstation:
         """
         workflow = import_seisflows(workdir=workdir or self.path.workdir,
                                     parameter_file=parameter_file)
+        #print(workflow)
         workflow.check()
+        #print(workflow.check())
+        #print(workflow.check())
         workflow.setup()
         workflow.run()
 
@@ -194,6 +197,7 @@ class Workstation:
             ntasks = self.ntask
 
         for task_id in range(ntasks):
+            logger.info(f"TASKKKKKKK: {task_id}")
             # Set Task ID for currently running process
             set_task_id(task_id)
             log_file = self._get_log_file(task_id)

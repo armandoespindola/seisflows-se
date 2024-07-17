@@ -149,7 +149,7 @@ def mkdir(dirs):
     :type dirs: str or list
     :param dirs: pathnames to make
     """
-    time.sleep(2 * random.random())  # interval [0, 2]s
+    time.sleep(0 * random.random())  # interval [0, 2]s
 
     for dir_ in _iterable(dirs):
         if not os.path.isdir(dir_):

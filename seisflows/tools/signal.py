@@ -9,7 +9,7 @@ interact with ObsPy trace and stream objects
     the SeisFlows example problems.
 """
 import numpy as np
-
+from seisflows import logger
 
 def mask(slope, const, offset, nt, dt, length=400):
     """
@@ -125,18 +125,15 @@ def mute_offsets(st, dist, choice):
     st_out = st.copy()
 
     # Get the source and receiver coordinates
-    s_coords = get_receiver_coords(st)
-    r_coords = get_receiver_coords(st)
-
+    sx, sy, sz = get_source_coords(st)
+    rx, ry, rz = get_receiver_coords(st)
     for i, tr in enumerate(st_out):
-        sx, sy, sz = s_coords[:][i]
-        rx, ry, rz = r_coords[:][i]
         # Determine the distance between source and receiver
-        offset = np.sqrt((rx - sx) ** 2 + (ry - sy) ** 2)
-
-        if choice == "long" and (offset < dist):
+        offset = np.sqrt((rx[i] - sx[i]) ** 2 + (ry[i] - sy[i]) ** 2)
+        if choice == "LONG" and (offset > dist):
+#            logger.info(f"mute long , {choice,dist,offset}")
             tr.data *= 0
-        elif choice == "short" and (offset > dist):
+        elif choice == "SHORT" and (offset < dist):
             tr.data *= 0
 
     return st_out

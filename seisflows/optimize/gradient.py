@@ -292,7 +292,13 @@ class Gradient:
             p = Model(path=self.path.preconditioner)
             if self.preconditioner.upper() == "DIAGONAL":
                 logger.info("applying diagonal preconditioner")
-                return p.vector * q
+
+                diag  = np.abs(p.vector)
+
+                diag /= np.max(diag)
+
+                diag = 1.0 / (diag + np.max(diag) * 0.1)
+                return diag * q
             else:
                 raise NotImplementedError(
                     f"preconditioner {self.preconditioner} not supported"
@@ -339,6 +345,7 @@ class Gradient:
         # Restart plugin line search if the optimization library restarts
         if self._restarted:
             self._line_search.clear_search_history()
+#            logger.info("ESSS")
 
         # Optional safeguard to prevent step length from getting too large
         if self.step_len_max:
@@ -349,6 +356,8 @@ class Gradient:
         # Initialize the line search and save it to disk.
         self._line_search.update_search_history(func_val=f, step_len=0.,
                                                 gtg=gtg, gtp=gtp)
+
+#        logger.info("ESSS")
 
         alpha, _ = self._line_search.calculate_step_length()
 

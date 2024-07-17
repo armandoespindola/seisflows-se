@@ -127,7 +127,11 @@ class Migration(Forward):
             )
 
         logger.info(msg.mnr("EVALUATING EVENT KERNELS W/ ADJOINT SIMULATIONS"))
-        self.system.run([run_adjoint_simulation])
+
+        if self.source_encoding:
+            self.system.run([run_adjoint_simulation],single=True)
+        else:
+            self.system.run([run_adjoint_simulation])
 
     def postprocess_event_kernels(self):
         """
@@ -210,6 +214,17 @@ class Migration(Forward):
 
         # Merge to vector and convert to absolute perturbations:
         # log dm --> dm (see Eq.13 Tromp et al 2005)
+        # Armando - VP -> 0 
+        #gradient.model['vp_kernel'] = 0.0 * gradient.model['vp_kernel']
+
+        if self.solver.materials.upper() == "ELASTIC" :
+            import numpy as np
+            for iproc in range(len(model.model['vs'])):
+                idx = np.where(model.model['vs'][iproc] == 0.0)
+                # logger.info(f"{idx}")
+                gradient.model['vp_kernel'][iproc][idx] = 0.0 
+        #import sys
+        #sys.exit()
         gradient.update(vector=gradient.vector * model.vector)
         gradient.write(path=os.path.join(self.path.eval_grad, "gradient"))
 

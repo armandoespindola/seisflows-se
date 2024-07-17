@@ -189,6 +189,7 @@ system: workstation
 solver: specfem2d
 preprocess: default
 optimize: gradient
+source_encoding: False
 """
 
 

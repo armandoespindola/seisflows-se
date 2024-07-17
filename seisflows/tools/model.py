@@ -356,7 +356,7 @@ class Model:
                 imax = sum(self.ngll) * idim + sum(self.ngll[:iproc + 1])
                 model[key].extend([vector[imin:imax]])
 
-            model[key] = np.array(model[key])
+            model[key] = np.array(model[key])#,dtype=object)
         return model
 
     def check(self, min_pr=-1., max_pr=0.5):
@@ -475,7 +475,15 @@ class Model:
         model = Dict()
         coords = Dict()
         ngll = []
+
+        np_load_old = np.load
+
+        # modify the default parameters of np.load
+        # ARMANDO
+        import numpy as np
+        np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
         data = np.load(file=file)
+        np.load = np_load_old
         for i, key in enumerate(data.files):
             if key == "fmt":
                 continue
@@ -506,7 +514,10 @@ class Model:
         model = Dict()
         coords = Dict()
         ngll = []
+        np_load_old = np.load
+        np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
         data = np.load(file=file)
+        np.load = np_load_old
         for i, key in enumerate(data.files):
             if key == "fmt":
                 continue
@@ -708,7 +719,7 @@ class Model:
         # !!! Causes a visible deprecation warning from NumPy but setting
         # !!! array type as 'object' causes problems with pickling and
         # !!! merging arrays
-        array = np.array(array)
+        array = np.array(array)#,dtype=object)
 
         return array
 
@@ -748,7 +759,7 @@ class Model:
         for fid in sorted(fids):
             array.append(np.loadtxt(fid).T[:, column_idx])
 
-        return np.array(array)
+        return np.array(array)#,dtype=object)
 
     def _write_model_fortran_binary(self, path):
         """

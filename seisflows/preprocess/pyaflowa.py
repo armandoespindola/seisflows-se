@@ -502,7 +502,8 @@ class Pyaflowa:
                 mgmt.plot(choice="wav", show=False, save=save)
 
         # Write out the .adj adjoint source files for solver to discover.
-        # Write empty adjoint sources for components with no adjoint sources
+        # Write empty adjoint sources for components
+        with no adjoint sources
         if mgmt.stats.misfit is not None and save_adjsrcs:
             mgmt.write_adjsrcs(path=save_adjsrcs, write_blanks=True)
 

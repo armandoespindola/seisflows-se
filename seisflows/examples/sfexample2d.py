@@ -141,6 +141,7 @@ class SFExample2D:
             "data_case": "synthetic",  # synthetic-synthetic inversion
             "components": "Y",  # only Y component seismograms avail.
             "attenuation": False,
+            "source_encoding": False,
             "misfit": "traveltime",  # cross-correlation phase measure
             "adjoint": "traveltime",  # cross-correlation phase measure
             "path_specfem_bin": self.workdir_paths.bin,
@@ -421,6 +422,7 @@ class SFExample2D:
         self.sf.setup(force=True)  # Force will delete existing parameter file
         for key, val in self._modules.items():
             self.sf.par(key, val)
+            
 
         self.sf.configure()
 

@@ -180,6 +180,7 @@ def import_seisflows(workdir=os.getcwd(), parameter_file="parameters.yaml",
     """
     # Read in parameters from file. Set up the logger
     parameters = load_yaml(os.path.join(workdir, parameter_file))
+    print(parameters)
 
     # Expand relative paths to absolute internally to avoid rel path errors
     config_logger(level=parameters.log_level,
@@ -191,13 +192,16 @@ def import_seisflows(workdir=os.getcwd(), parameter_file="parameters.yaml",
     modules = Dict()
     for name in NAMES[:]:
         # Workflow is instantiated differently
+        #print(name,parameters[name])
         if name == "workflow":
             continue
         modules[name] = custom_import(name, parameters[name])(**parameters)
-
+    #print(modules)
     # Import workflow separately by providing all the instantiated modules to it
     workflow = \
         custom_import("workflow", parameters["workflow"])(modules, **parameters)
+    #print(workflow)
+    
 
     return workflow
 

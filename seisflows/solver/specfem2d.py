@@ -69,7 +69,7 @@ class Specfem2D(Specfem):
         self._export_starting_models(parameters=["x", "z"])
 
     def smooth(self, input_path, output_path, parameters=None, span_h=None,
-               span_v=None, use_gpu=False):
+               span_v=None, use_gpu=True):
         """
         Specfem2D requires additional model parameters in directory to perform
         the xsmooth_sem task. This function will copy these files into the

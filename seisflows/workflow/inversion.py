@@ -234,6 +234,8 @@ class Inversion(Migration):
         else:
             export_residuals = False
 
+
+
         self.preprocess.quantify_misfit(
             source_name=self.solver.source_name,
             save_adjsrcs=os.path.join(self.solver.cwd, "traces", "adj"),
@@ -295,13 +297,27 @@ class Inversion(Migration):
                 # Run forward simulation with previous model. Hard set line search
                 # step count in residual file names to 0 since it is assumed we are 
                 # running the initial misfit evaluation (i??s00)
-                self.system.run(
-                    [self.run_forward_simulations,
-                     self.evaluate_objective_function],
-                    path_model=path_model,
-                    save_residuals=os.path.join(
-                        self.path.eval_grad,
-                        f"residuals_{{src}}_{self.iteration}_0.txt")
+                if not self.source_encoding:
+                    self.system.run(
+                        [self.run_forward_simulations,
+                         self.evaluate_objective_function],
+                        path_model=path_model,
+                        save_residuals=os.path.join(
+                            self.path.eval_grad,
+                            f"residuals_{{src}}_{self.iteration}_0.txt")
+                    )
+                else:
+                    self.system.run(
+                        [self.prepare_freq_se,
+                         self.run_forward_simulations,
+                         #self.prepare_obs_data_se,
+                         #self.prepare_syn_data_se,
+                         self.evaluate_objective_function],
+                        seed = self.iteration,
+                        path_model=path_model,single= True,
+                        save_residuals=os.path.join(
+                            self.path.eval_grad,
+                            f"residuals_{{src}}_{self.iteration}_0.txt")
                     )
 
         # Rename exported synthetic traces so they are not overwritten by
@@ -316,7 +332,10 @@ class Inversion(Migration):
                                f"residuals_*_{self.iteration}_0.txt"))
         residuals = self._read_residuals(residuals_files)
 
+        #logger.info(f"{residuals}")
+
         total_misfit = self.preprocess.sum_residuals(residuals)
+        #logger.info(f"{total_misfit}")
         self.optimize.save_vector(name="f_new", m=total_misfit)
 
     def evaluate_gradient_from_kernels(self):
@@ -448,6 +467,7 @@ class Inversion(Migration):
                 self.optimize.restart()
                 self.optimize.checkpoint()
                 self.perform_line_search()  # RECURSIVE CALL
+                
             # If we can't then line search has failed. Abort workflow
             else:
                 logger.critical(
@@ -465,14 +485,25 @@ class Inversion(Migration):
         iteration = self.iteration
         step_count = self.optimize.step_count
 
-        self.system.run(
+        if not self.source_encoding:
+            self.system.run(
             [self.run_forward_simulations,
              self.evaluate_objective_function],
             path_model=os.path.join(self.path.eval_func, "model"),
             save_residuals=os.path.join(
                 self.path.eval_func,
                 f"residuals_{{src}}_{iteration}_{step_count}.txt")
-        )
+            )
+        else:
+            self.system.run(
+            [self.run_forward_simulations,
+             #self.prepare_syn_data_se,
+             self.evaluate_objective_function],single=True,
+            path_model=os.path.join(self.path.eval_func, "model"),
+            save_residuals=os.path.join(
+                self.path.eval_func,
+                f"residuals_{{src}}_{iteration}_{step_count}.txt")
+            )
 
         residuals_files = glob(os.path.join(
             self.path.eval_func, f"residuals_*_{iteration}_{step_count}.txt")

@@ -207,12 +207,17 @@ class LBFGS(Gradient):
         p_new = g.copy()
         p_new.update(vector=-1 * g.vector)
         self.save_vector("p_new", p_new)
-
+        #f = self.load_vector("f_new")
+        
         # Clear internal memory
-        self._line_search.clear_search_history()
+        #self._line_search.clear_search_history()
         self._restarted = True
         self._LBFGS_iter = 1
         self._memory_used = 0
+        
+        # # Initialize the line search and save it to disk.
+        # self._line_search.update_search_history(func_val=f, step_len=0.,
+        #                                         gtg=gtg, gtp=gtp)
 
         # Clear out previous gradient information
         s = np.memmap(filename=self.path._s_file, mode="r+")

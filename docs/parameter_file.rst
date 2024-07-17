@@ -298,6 +298,14 @@ required by SeisFlows. Section headers will look something:
     data_case: data
     export_traces: False
     export_residuals: False
+    se_min_freq: 0.050
+    se_max_freq: 0.20
+    se_nfreq: 24
+    se_seed: 1
+    se_t: 540
+    se_td: 360
+    se_dt: 6.0E-2
+    source_encoding: False
     # =============================================================================
     #
     #    Workstation System

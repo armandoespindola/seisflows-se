@@ -136,6 +136,15 @@ class Specfem:
         self.components = components
         self.source_prefix = source_prefix or "SOURCE"
 
+        self.source_encoding = kwargs['source_encoding']
+        
+        #if self.source_encoding:
+        #    self.se_gamma = kwargs['se_gamma']
+        #     self.se_max_freq = kwargs['se_max_freq']
+        #     self.se_nfreq = kwargs['se_nfreq']
+        #     self.se_seed = kwargs['se_seed']
+        
+
         # Define internally used directory structure
         self.path = Dict(
             scratch=path_solver or os.path.join(workdir, "scratch", "solver"),
@@ -505,10 +514,31 @@ class Specfem:
         if executables is None:
             executables = ["bin/xmeshfem2D", "bin/xspecfem2D"]
 
+        
+        # if self.source_enconding:
+        #     import random
+        #     import numpy as np
+        #     random.seed(self.se_seed)
+        #     dw = (self.se_max_freq - self.se_min_freq) / self.se_nfreq
+        #     w_v = np.linspace(0,self.se_nfreq) * dw + self.se_min_freq
+        #     w_idx_rand = random.sample(range(self.se_nfreq),self.se_nfreq)
+        #     logger.info(f"{w_v}")
+        #     logger.info(f"{w_v[w_idx_rand[get_task_id()]]} - SOURCE")
+        #     name_source = self.source_prefix + "_" + self.source_name
+        #     source_file = os.path.join(self.path.specfem_data, name_source)
+        #     logger.info(f"{source_file} - SOURCE")
+        #     setpar(key="f0", val=w_v[w_idx_rand[get_task_id()]],
+        #                                         file=source_file)
+        
         unix.cd(self.cwd)
         setpar(key="SIMULATION_TYPE", val="1", file="DATA/Par_file")
         setpar(key="SAVE_FORWARD", val=f".{str(save_forward).lower()}.",
                file="DATA/Par_file")
+
+        if not self.source_encoding:
+            setpar(key="NSOURCES", val="1",
+                   file="DATA/Par_file")
+        
 
         # Calling subprocess.run() for each of the binary executables listed
         for exc in executables:
@@ -516,8 +546,10 @@ class Specfem:
             stdout = f"fwd_{self._exc2log(exc)}.log"
             self._run_binary(executable=exc, stdout=stdout)
 
+        #logger.info(f"{self.syn_data_format.upper()}EEEE")
         # Work around SPECFEM's version dependent file names
         if self.syn_data_format.upper() == "SU":
+            #logger.info(f"{self.syn_data_format}")
             for tag in ["d", "v", "a", "p"]:
                 unix.rename(old=f"single_{tag}.su", new="single.su",
                             names=glob(os.path.join("OUTPUT_FILES", "*.su")))
@@ -646,11 +678,19 @@ class Specfem:
             unix.mkdir(output_path)
 
         # Write the source names into the kernel paths file for SEM/ directory
-        with open("kernel_paths", "w") as f:
-            f.writelines(
-                [os.path.join(input_path, f"{name}\n")
-                 for name in self.source_names]
-            )
+
+        if not self.source_encoding:
+            with open("kernel_paths", "w") as f:
+                f.writelines(
+                    [os.path.join(input_path, f"{name}\n")
+                     for name in self.source_names]
+                )
+                
+        else:
+            with open("kernel_paths", "w") as f:
+                f.writelines(
+                    [os.path.join(input_path, f"{self.source_names[0]}\n")]
+                )
 
         # Call on xcombine_sem to combine kernels into a single file
         for name in parameters:
@@ -661,7 +701,7 @@ class Specfem:
             self._run_binary(executable=exc, stdout=stdout)
 
     def smooth(self, input_path, output_path, parameters=None, span_h=None,
-               span_v=None, use_gpu=False):
+               span_v=None, use_gpu=True):
         """
         Wrapper for SPECFEM binary: xsmooth_sem
         Smooths kernels by convolving them with a 3D Gaussian
@@ -706,9 +746,9 @@ class Specfem:
         input_path = os.path.join(input_path, "")
         output_path = os.path.join(output_path, "")
         if use_gpu:
-            use_gpu = ".true"
+            use_gpu = ".true."
         else:
-            use_gpu = ".false"
+            use_gpu = ".false."
         # mpiexec ./bin/xsmooth_sem SMOOTH_H SMOOTH_V name input output use_gpu
         for name in parameters:
             exc = (f"bin/xsmooth_sem {str(span_h)} {str(span_v)} {name}_kernel "
@@ -873,22 +913,39 @@ class Specfem:
             unix.mkdir(os.path.join(cwd, dir_))
 
         # Copy existing SPECFEM exectuables into the bin/ directory
-        src = glob(os.path.join(self.path.specfem_bin, "*"))
-        dst = os.path.join(cwd, "bin", "")
-        unix.cp(src, dst)
+        if not self.source_encoding:
+            src = glob(os.path.join(self.path.specfem_bin, "*"))
+            dst = os.path.join(cwd, "bin", "")
+            unix.cp(src, dst)
+        elif self.source_names.index(source_name) == 0:
+            src = glob(os.path.join(self.path.specfem_bin, "*"))
+            dst = os.path.join(cwd, "bin", "")
+            unix.cp(src, dst)
 
         # Copy in all input DATA/ file that are not '{source_prefix}*'
         src = glob(os.path.join(self.path.specfem_data, "*"))
         src = [_ for _ in src if not
                os.path.basename(_).startswith(self.source_prefix)]
+
+        if self.source_encoding:
+            src = [_ for _ in src if not
+                   os.path.basename(_).endswith(self._ext)]
+        
         dst = os.path.join(cwd, "DATA", "")
         unix.cp(src, dst)
 
         # Symlink event source specifically, only retain source prefix
-        src = os.path.join(self.path.specfem_data,
-                           f"{self.source_prefix}_{source_name}")
-        dst = os.path.join(cwd, "DATA", self.source_prefix)
-        unix.ln(src, dst)
+
+        if not self.source_encoding:
+            src = os.path.join(self.path.specfem_data,
+                               f"{self.source_prefix}_{source_name}")
+            dst = os.path.join(cwd, "DATA", self.source_prefix)
+            unix.ln(src, dst)
+        elif self.source_names.index(source_name) == 0:
+            src = os.path.join(self.path.specfem_data,
+                               f"SUPERSOURCE")
+            dst = os.path.join(cwd, "DATA", self.source_prefix)
+            unix.ln(src, dst)
 
         # Symlink TaskID==0 as mainsolver in solver directory for convenience
         if self.source_names.index(source_name) == 0:

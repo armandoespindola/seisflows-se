@@ -233,7 +233,7 @@ def setpar_vel_model(file, model):
     model[-1] = model[-1] + "\n"
 
     # Drop in the new model one line at a time
-    for i, val in enumerate(model):
+    for i, val in enumerate(model_lines):
         lines.insert(i + model_lines[0], f"{val.strip()}\n")
 
     # Overwrite with new lines containing updated velocity model

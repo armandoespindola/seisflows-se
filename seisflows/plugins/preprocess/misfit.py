@@ -206,6 +206,25 @@ def instantaneous_phase2(syn, obs, nt, dt, eps=0., *args, **kwargs):
     return np.sqrt(np.sum(diff * diff * dt))
 
 
+
+def se_waveform(syn,obs):
+    residual = syn - obs
+    misfit = np.sum(np.multiply(residual,np.conj(residual)))
+    return np.sqrt(np.real(misfit))
+
+def se_phase(syn,obs):
+    # Exponential Phase Misfit
+    # ratio = syn / obs
+    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    angle_unwrap = np.unwrap(np.angle(ratio))
+    residual = np.sqrt(2) * np.sin(0.50 * angle_unwrap)
+    misfit = np.sqrt(np.sum(np.multiply(residual,residual)))
+    return misfit
+
+
+
+    
+    
 def displacement(*args, **kwargs):
     return Exception("This function can only used for migration.")
 
