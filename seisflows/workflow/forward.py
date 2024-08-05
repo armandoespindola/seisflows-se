@@ -85,7 +85,7 @@ class Forward:
                  export_traces=False, export_residuals=False,
                  workdir=os.getcwd(), path_output=None, path_data=None,
                  path_state_file=None, path_model_init=None,
-                 path_model_true=None, path_eval_grad=None,**kwargs):
+                 path_model_true=None, path_eval_grad=None,materials="ACOUSTIC",**kwargs):
         """
         Set default forward workflow parameters
 
@@ -129,7 +129,8 @@ class Forward:
                 key, val = line.strip().split(":")
                 self._states[key] = val.strip()
 
-        
+
+        self.materials = materials
         if self.source_encoding:
             self.se_min_freq = kwargs['se_min_freq']
             self.se_max_freq = kwargs['se_max_freq']

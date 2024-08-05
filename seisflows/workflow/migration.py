@@ -97,17 +97,36 @@ class Migration(Forward):
         :rtype: list
         :return: list of methods to call in order during a workflow
         """
-        return [self.evaluate_initial_misfit,
-                self.run_adjoint_simulations,
-                self.postprocess_event_kernels,
-                self.evaluate_gradient_from_kernels
-                ]
+
+        if self.materials.upper() == "ANELASTIC":
+
+            tasks = [self.evaluate_initial_misfit,
+                     self.run_adjoint_simulations,
+                     self.run_adjoint_simulations_q,
+                     self.postprocess_event_kernels,
+                     self.evaluate_gradient_from_kernels
+                     ]
+        else:
+    
+            tasks =  [self.evaluate_initial_misfit,
+                      self.run_adjoint_simulations,
+                      self.postprocess_event_kernels,
+                      self.evaluate_gradient_from_kernels
+                      ]
+
+        return tasks
 
     def run_adjoint_simulations(self):
         """
         Performs adjoint simulations for a single given event. File manipulation
         to ensure kernels are discoverable by other modules
         """
+
+        for ifile in glob(os.path.join(self.solver.cwd,"traces/adj/*.adj_e")):
+            name_new = os.path.dirname(ifile) + "/" + os.path.basename(ifile).split("_e")[0]
+            unix.rm(name_new)
+            logger.info(f" aaaa - {name_new}")
+            unix.ln(ifile, dst=name_new)          
         def run_adjoint_simulation():
             """Adjoint simulation function to be run by system.run()"""
             if self.export_kernels:
@@ -132,6 +151,46 @@ class Migration(Forward):
             self.system.run([run_adjoint_simulation],single=True)
         else:
             self.system.run([run_adjoint_simulation])
+
+
+
+    def run_adjoint_simulations_q(self):
+        """
+        Performs adjoint simulations for a single given event. File manipulation
+        to ensure kernels are discoverable by other modules
+        """
+
+        for ifile in glob(os.path.join(self.solver.cwd,"traces/adj/*.adj_q")):
+            name_new = os.path.dirname(ifile) + "/" + os.path.basename(ifile).split("_q")[0]
+            unix.rm(name_new)
+            unix.ln(ifile, dst=name_new)         
+        def run_adjoint_simulation():
+            """Adjoint simulation function to be run by system.run()"""
+            if self.export_kernels:
+                export_kernels = os.path.join(self.path.output, "kernels",
+                                              self.solver.source_name)
+            else:
+                export_kernels = False
+
+            logger.info(f"running adjoint - Q - simulation for source "
+                        f"{self.solver.source_name}")
+            # Run adjoint simulations on system. Make kernels discoverable in
+            # path `eval_grad`. Optionally export those kernels
+            self.solver.adjoint_simulation(
+                save_kernels=os.path.join(self.path.eval_grad, "kernels",
+                                          self.solver.source_name, ""),
+                export_kernels=export_kernels,adjoint_q=True)
+            
+
+        logger.info(msg.mnr("EVALUATING EVENT KERNELS W/ ADJOINT SIMULATIONS - Q"))
+
+        if self.source_encoding:
+            self.system.run([run_adjoint_simulation],single=True)
+        else:
+            self.system.run([run_adjoint_simulation])
+
+
+
 
     def postprocess_event_kernels(self):
         """
@@ -222,7 +281,18 @@ class Migration(Forward):
             for iproc in range(len(model.model['vs'])):
                 idx = np.where(model.model['vs'][iproc] == 0.0)
                 # logger.info(f"{idx}")
-                gradient.model['vp_kernel'][iproc][idx] = 0.0 
+                gradient.model['vp_kernel'][iproc][idx] = 0.0
+
+        if self.solver.materials.upper() == "ANELASTIC" :
+            import numpy as np
+            for iproc in range(len(model.model['vs'])):
+                idx = np.where(model.model['vs'][iproc] == 0.0)
+                # logger.info(f"{idx}")
+                gradient.model['vp_kernel'][iproc][idx] = 0.0
+                gradient.model['Qmu_kernel'][iproc][idx] = 0.0
+
+            gradient.model['Qmu_kernel'][:][:] *= 1.0 / model.model['Qmu'][:][:]
+                
         #import sys
         #sys.exit()
         gradient.update(vector=gradient.vector * model.vector)

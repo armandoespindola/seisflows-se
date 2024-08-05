@@ -123,7 +123,21 @@ class Inversion(Migration):
         :rtype: list
         :return: list of methods to call in order during a workflow
         """
-        return [self.evaluate_initial_misfit,
+
+        if self.materials.upper() == "ANELASTIC":
+
+            tasks = [self.evaluate_initial_misfit,
+                     self.run_adjoint_simulations,
+                     self.run_adjoint_simulations_q,
+                self.postprocess_event_kernels,
+                self.evaluate_gradient_from_kernels,
+                self.initialize_line_search,
+                self.perform_line_search,
+                self.finalize_iteration
+                ]
+        else:
+    
+            tasks = [self.evaluate_initial_misfit,
                 self.run_adjoint_simulations,
                 self.postprocess_event_kernels,
                 self.evaluate_gradient_from_kernels,
@@ -131,7 +145,8 @@ class Inversion(Migration):
                 self.perform_line_search,
                 self.finalize_iteration
                 ]
-
+            
+        return tasks
     def check(self):
         """
         Checks inversion-specific parameters

@@ -198,7 +198,7 @@ class Gradient:
         model_txt = model_npz.replace(".npz", ".txt")
 
         if os.path.exists(model_npz):
-            model = Model(path=model_npz)
+            model = Model(path=model_npz,flavor="2D")
         elif os.path.exists(model_npy):
             model = np.load(model_npy)
         elif os.path.exists(model_txt):
@@ -372,6 +372,7 @@ class Gradient:
         m_try = m.copy()
         m_try.update(vector=m.vector + alpha * p.vector)
         logger.info("trial model 'm_try' parameters: ")
+        #m_try._guess_specfem_flavor()
         m_try.check()
 
         return m_try, alpha

@@ -47,6 +47,9 @@ class Specfem2D(Specfem):
             self._parameters += ["vp"]
         elif self.materials.upper() == "ELASTIC":
             self._parameters += ["vp", "vs"]
+        elif self.materials.upper() == "ANELASTIC":
+            self._parameters +=["vp", "vs","Qmu"]
+        
 
     def setup(self):
         """
@@ -69,7 +72,7 @@ class Specfem2D(Specfem):
         self._export_starting_models(parameters=["x", "z"])
 
     def smooth(self, input_path, output_path, parameters=None, span_h=None,
-               span_v=None, use_gpu=True):
+               span_v=None, use_gpu=False):
         """
         Specfem2D requires additional model parameters in directory to perform
         the xsmooth_sem task. This function will copy these files into the

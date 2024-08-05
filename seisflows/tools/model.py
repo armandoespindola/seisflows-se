@@ -30,7 +30,7 @@ class Model:
     # Dictate the parameters that Model can handle, which does not cover all
     # files created by SPECFEM, which includes things like 'ibool', 'info' etc.
     acceptable_parameters = ["vp", "vs", "rho",
-                             "vpv", "vph", "vsv", "vsh", "eta"]
+                             "vpv", "vph", "vsv", "vsh", "eta","Qmu"]
     # Add kernel tag to all acceptable parameters for adjoint simulation results
     acceptable_parameters.extend([f"{_}_kernel" for _ in acceptable_parameters])
     # Edit acceptable parameters for 3DGLOBE, which must include region name
@@ -243,7 +243,10 @@ class Model:
         # Create a dictionary object containing all parameters and their models
         parameter_dict = Dict({key: [] for key in parameters})
         for parameter in parameters:
-            parameter_dict[parameter] = load_fx(parameter=parameter)
+            if parameter == "Qmu":
+                parameter_dict[parameter] = 1.0 / load_fx(parameter=parameter)
+            else:
+                parameter_dict[parameter] = load_fx(parameter=parameter)
 
         return parameter_dict
 
@@ -365,6 +368,7 @@ class Model:
         ratio. Checks for negative velocity values. And prints out model
         min/max values
         """
+        
         if self.flavor in ["2D", "3D"]:
             self._check_2d3d_parameters(min_pr, max_pr)
         elif self.flavor == "3DGLOBE":
@@ -392,10 +396,23 @@ class Model:
         if "vp" in self.model and np.hstack(self.model.vp).min() < 0:
             logger.warning(f"Vp minimum is negative {self.model.vp.min()}")
 
+
+        if "Qmu" in self.model:
+            for iproc in range(self.nproc):
+                dat = self.model['Qmu'][iproc][:].copy()
+                dat[dat < 0.0] = 1.0 / 9999
+                dat[abs(dat) < 1.0/9999] = 1.0 / 9999
+                dat[dat > 1/30] = 1/30
+                self.model['Qmu'][iproc][:] = dat.copy()
+
         # Tell the User min and max values of the updated model
         for key, vals in self.model.items():
-            min_val = np.hstack(vals).min()
-            max_val = np.hstack(vals).max()
+            if key == "Qmu":
+                min_val = np.hstack(1/vals).min()
+                max_val = np.hstack(1/vals).max()
+            else:
+                min_val = np.hstack(vals).min()
+                max_val = np.hstack(vals).max()
             # Choose formatter based on the magnitude of the value
             if min_val < 1 or max_val > 1E4:
                 parts = f"{min_val:.2E} <= {key} <= {max_val:.2E}"
@@ -540,6 +557,7 @@ class Model:
         are tied to one another, updating one will update the other. This
         function simply makes that easier.
         """
+        
         if model is not None:
             self.model = model
         elif vector is not None:
@@ -776,5 +794,8 @@ class Model:
             for i, data in enumerate(self.model[parameter]):
                 filename = self.fnfmt(i=i, val=parameter, ext=".bin")
                 filepath = os.path.join(path, filename)
-                write_fortran_binary(arr=data, filename=filepath)
+                if parameter == "Qmu":
+                    write_fortran_binary(arr=1.0/data, filename=filepath)
+                else:
+                    write_fortran_binary(arr=data, filename=filepath)
 

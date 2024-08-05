@@ -171,7 +171,7 @@ class Specfem:
         # Define available choices for check parameters
         self._available_model_types = ["gll"]
         self._available_materials = [
-            "ELASTIC", "ACOUSTIC",  # specfem2d, specfem3d
+            "ELASTIC", "ACOUSTIC", "ANELASTIC",  # specfem2d, specfem3d
             "ISOTROPIC", "ANISOTROPIC"  # specfem3d_globe
         ]
         # SPECFEM2D specific attributes. Should be overwritten by 3D versions
@@ -571,7 +571,7 @@ class Specfem:
             )
 
     def adjoint_simulation(self, executables=None, save_kernels=False,
-                           export_kernels=False):
+                           export_kernels=False,adjoint_q=False):
         """
         Wrapper for SPECFEM binary 'xspecfem?D'
 
@@ -635,6 +635,12 @@ class Specfem:
                 logger.debug(f"renaming output event kernels: '{tag}' -> 'vs'")
                 unix.rename(old="beta", new="vs", names=names)
 
+        for tag in ["mu", "reg?_mu", "reg?_mu"]:
+            names = glob(self.model_wildcard(par=tag, kernel=True))
+            if names:
+                logger.debug(f"renaming output event kernels: '{tag}' -> 'Qmu'")
+                unix.rename(old="mu", new="Qmu", names=names)
+
         # Save and export the kernels to user-defined locations
         if export_kernels:
             unix.mkdir(export_kernels)
@@ -644,9 +650,14 @@ class Specfem:
 
         if save_kernels:
             unix.mkdir(save_kernels)
-            for par in self._parameters:
-                unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
-                        dst=save_kernels)
+            if adjoint_q == False:
+                for par in self._parameters[:2]:
+                    unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
+                            dst=save_kernels)
+            elif adjoint_q:
+                for par in [self._parameters[-1]]:
+                    unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
+                            dst=save_kernels)
 
     def combine(self, input_path, output_path, parameters=None):
         """
@@ -701,7 +712,7 @@ class Specfem:
             self._run_binary(executable=exc, stdout=stdout)
 
     def smooth(self, input_path, output_path, parameters=None, span_h=None,
-               span_v=None, use_gpu=True):
+               span_v=None, use_gpu=False):
         """
         Wrapper for SPECFEM binary: xsmooth_sem
         Smooths kernels by convolving them with a 3D Gaussian

@@ -94,6 +94,7 @@ class Default:
                  mute=None, early_slope=None, early_const=None, late_slope=None,
                  late_const=None, short_dist=None, long_dist=None,
                  workdir=os.getcwd(), path_preprocess=None, path_solver=None,
+                 materials="acoustic",
                  **kwargs):
         """
         Preprocessing module parameters
@@ -118,6 +119,7 @@ class Default:
         self.misfit = misfit
         self.adjoint = adjoint
         self.normalize = normalize
+        self.materials = materials
 
         self.filter = filter
         self.min_period = min_period
@@ -527,6 +529,8 @@ class Default:
         """
 
         observed, synthetic = self._setup_quantify_misfit(source_name)
+        if self.materials.upper() == "ANELASTIC":
+            adjsrc_q = Stream()
         adjsrc = Stream()      
 
         #logger.info(f"{synthetic}")
@@ -600,6 +604,7 @@ class Default:
                 se_ntss = se_t - se_td
                 se_dt = self.par['se_dt'] * self.par['se_dwn']
                 nt_ss = se_ntss
+                qf0  = self.par['qf0']
                 #logger.info(f"EEEEEEEEEEEE{se_td}")
 
 
@@ -676,23 +681,39 @@ class Default:
                                 rdi = rdi, fft_stf = fft_stf,gamma = self.par['se_gamma'],t0_array=t0_array[:,istat],
                                 Wp = Wp[:,istat])
 
+                            if self.materials.upper() == "ANELASTIC":
+                                adjsrc_st_q = syn[istat].copy()
+                                adjsrc_st_q.data[:] = 0.0
+                                adj_data =  adjsrc_st.data.copy()
+                                adjsrc_st_q.data = elastic_to_anelastic_adj(adj_data, se_dt, qf0)
+
+
                             #adjsrc_st.resample(sampling_rate= 0.50 / adjsrc_st.stats.delta)
                             #logger.info(f"{adjsrc_st.stats}")
                             #adjsrc_st.plot()
                     else:
                         adjsrc_st = syn[istat].copy()
                         adjsrc_st.data[:] = 0.0
-                        
+
+                    if self.materials.upper() == "ANELASTIC":
+                        adjsrc_q.append(adjsrc_st_q)
                     adjsrc.append(adjsrc_st)
 
                 adjsrc.resample(sampling_rate = 1.0 / self.par['se_dt'] )
                 adjsrc.taper(0.05,side='right')
-                #logger.info(f'{adjsrc[0].stats}')
-                #adjsrc[0].plot()
                 fid = os.path.basename(syn_fid)
-                fid = self._rename_as_adjoint_source(fid)
+                fid = self._rename_as_adjoint_source(fid) + "_e"
                 logger.info(f"writing adjsource {os.path.join(save_adjsrcs, fid)}")
                 self.write(st=adjsrc, fid=os.path.join(save_adjsrcs, fid))
+
+
+                if self.materials.upper() == "ANELASTIC":
+                    adjsrc_q.resample(sampling_rate = 1.0 / self.par['se_dt'] )
+                    adjsrc_q.taper(0.05,side='right')
+                    fid = os.path.basename(syn_fid)
+                    fid = self._rename_as_adjoint_source(fid) + "_q"
+                    logger.info(f"writing adjsource {os.path.join(save_adjsrcs, fid)}")
+                    self.write(st=adjsrc_q, fid=os.path.join(save_adjsrcs, fid))
 
                 if save_adjsrcs and self._generate_adjsrc:
                     self._check_adjoint_traces(source_name, save_adjsrcs, synthetic)
@@ -734,8 +755,7 @@ class Default:
                     adjsrc_st.data[:] = 0.0
                     adjsrc_st.data = self._generate_adjsrc(
                         obs=obs_data, syn=syn_data,
-                        nt=tr_syn.stats.npts, dt=tr_syn.stats.delta
-                    )
+                        nt=tr_syn.stats.npts, dt=tr_syn.stats.delta)
                     #adjsrc_st.plot()
                     adjsrc.append(adjsrc_st)
                     fid = os.path.basename(syn_fid)
@@ -1208,3 +1228,29 @@ def unwrap(data,t0):
     phase_unwrap[idxgreat0] = data_sel
     
     return phase_unwrap
+
+
+
+def elastic_to_anelastic_adj(adj_data, dt, f0):
+    # from scipy.fftpack import hilbert as hilbert_transform
+    twopi = 2*np.pi
+    w0 = twopi*f0
+    f = adj_data  # forward in time
+    # f = adj.adjoint_source
+    F = np.fft.fft(f)
+    freqs = np.fft.fftfreq(len(f), d=dt)
+    w = twopi*freqs
+    # fig, ax = plt.subplots()
+    w[0] = w0
+    # phy = np.conj((2/np.pi)*np.l# o
+    phy = (2/np.pi)*np.log(np.abs(w)/w0)
+    # g(np.abs(w)/w0))
+    # phy = np.log(np.abs(w)/w0)
+    phy[0] = phy[1]
+    atten_adj_source_1 = np.real(np.fft.ifft(F*phy))
+
+    amp = -1j*np.sign(w)
+    atten_adj_source_2 = np.real(np.fft.ifft(F*amp))
+    atten_adj_source = atten_adj_source_1 + atten_adj_source_2
+
+    return atten_adj_source

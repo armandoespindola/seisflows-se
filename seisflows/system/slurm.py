@@ -77,9 +77,9 @@ class Slurm(Cluster):
         self.slurm_args = slurm_args
 
         # Must be overwritten by child class
-        self.partition = None
-        self.submit_to = None
-        self._partitions = {}
+        self.partition = "cpu"
+        self.submit_to = self.partition
+        self._partitions = {"cpu":40}
 
         # Convert walltime and tasktime to datetime str 'H:MM:SS'
         self._tasktime = str(timedelta(minutes=self.tasktime))
@@ -421,8 +421,8 @@ def modify_run_call_single_proc(run_call):
     for part in run_call.split(" "):
         if "--array" in part:
             run_call = run_call.replace(part, "--array=0-0")
-        elif "--ntasks" in part:
-            run_call = run_call.replace(part, "--ntasks=1")
+        # elif "--ntasks" in part:
+        #     run_call = run_call.replace(part, "--ntasks=1")
 
     # Append taskid to environment variable, deal with the case where
     # self.par.ENVIRONS is an empty string
