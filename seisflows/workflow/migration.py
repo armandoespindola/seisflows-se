@@ -71,7 +71,7 @@ class Migration(Forward):
         self._modules = modules
         self.export_gradient = export_gradient
         self.export_kernels = export_kernels
-
+        self.kargs = kwargs
         self.path["mask"] = path_mask
 
         # Overwriting base class required modules list
@@ -99,13 +99,26 @@ class Migration(Forward):
         """
 
         if self.materials.upper() == "ANELASTIC":
+            if self.kargs['q_only']:
+                tasks = [self.evaluate_initial_misfit,
+                         self.run_adjoint_simulations_q,
+                         self.postprocess_event_kernels,
+                         self.evaluate_gradient_from_kernels,
+                         self.initialize_line_search,
+                         self.perform_line_search,
+                         self.finalize_iteration
+                         ]
+            else:    
+                tasks = [self.evaluate_initial_misfit,
+                         self.run_adjoint_simulations,
+                         self.run_adjoint_simulations_q,
+                         self.postprocess_event_kernels,
+                         self.evaluate_gradient_from_kernels,
+                         self.initialize_line_search,
+                         self.perform_line_search,
+                         self.finalize_iteration
+                         ]
 
-            tasks = [self.evaluate_initial_misfit,
-                     self.run_adjoint_simulations,
-                     self.run_adjoint_simulations_q,
-                     self.postprocess_event_kernels,
-                     self.evaluate_gradient_from_kernels
-                     ]
         else:
     
             tasks =  [self.evaluate_initial_misfit,
@@ -199,6 +212,25 @@ class Migration(Forward):
         a 3D Gaussian function with user-defined horizontal and vertical
         half-widths.
         """
+
+
+        def percentile_kernel():
+            import numpy as np
+            gradient = Model(path=os.path.join(self.path.eval_grad, "misfit_kernel")
+                             ,regions=self.solver._regions)
+
+            for parameters in self.solver._parameters:
+                p_old = 0.0 
+                kernels = parameters + "_kernel"
+                for iproc in range(len(gradient.model[kernels])):
+                    p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),99.9)
+                    if p_old < p_new:
+                        p_old = p_new
+                for iproc in range(len(gradient.model[kernels])):
+                    idx = np.where(np.abs(gradient.model[kernels][iproc]) > p_old)
+                    gradient.model[kernels][iproc][idx] = 0.0
+                    
+            gradient.write(path=os.path.join(self.path.eval_grad, "misfit_kernel"))
         def combine_event_kernels():
             """Combine event kernels into a misfit kernel"""
             logger.info("combining event kernels into single misfit kernel")
@@ -233,8 +265,15 @@ class Migration(Forward):
                 shutil.rmtree(scratch_path)
 
         logger.info(msg.mnr("GENERATING/PROCESSING MISFIT KERNEL"))
-        self.system.run([combine_event_kernels, smooth_misfit_kernel],
+
+        self.system.run([combine_event_kernels],
                         single=True)
+
+        percentile_kernel()
+
+        self.system.run([smooth_misfit_kernel],
+                        single=True)
+
 
     def evaluate_gradient_from_kernels(self):
         """
@@ -283,13 +322,15 @@ class Migration(Forward):
                 # logger.info(f"{idx}")
                 gradient.model['vp_kernel'][iproc][idx] = 0.0
 
-        if self.solver.materials.upper() == "ANELASTIC" :
+        if self.solver.materials.upper() == "ANELASTIC" and (not self.kargs['q_only']) :
             import numpy as np
-            for iproc in range(len(model.model['vs'])):
-                idx = np.where(model.model['vs'][iproc] == 0.0)
-                # logger.info(f"{idx}")
-                gradient.model['vp_kernel'][iproc][idx] = 0.0
-                gradient.model['Qmu_kernel'][iproc][idx] = 0.0
+
+            if not self.kargs['q_only']:
+                for iproc in range(len(model.model['vs'])):
+                    idx = np.where(model.model['vs'][iproc] == 0.0)
+                    # logger.info(f"{idx}")
+                    gradient.model['vp_kernel'][iproc][idx] = 0.0
+                    gradient.model['Qmu_kernel'][iproc][idx] = 0.0
 
             gradient.model['Qmu_kernel'][:][:] *= 1.0 / model.model['Qmu'][:][:]
                 

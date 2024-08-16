@@ -222,6 +222,24 @@ def se_phase(syn,obs):
     return misfit
 
 
+def se_amplitude(syn,obs):
+    # Exponential Phase Misfit
+    # ratio = syn / obs
+    amp_syn = np.abs(syn)
+    amp_obs = np.abs(obs)
+    
+    ratio = np.divide(amp_syn, amp_obs, out=np.ones_like(amp_syn), where=amp_obs!=0)
+    residual = np.log(ratio)
+    misfit = 0.5 * sum(np.multiply(residual,residual))
+    return misfit
+
+
+
+def se_amp_phase(syn,obs):
+    amp_misfit = se_amplitude(syn,obs)
+    phase_misfit = se_phase(syn,obs)
+    misfit = amp_misfit + phase_misfit
+    return misfit
 
     
     

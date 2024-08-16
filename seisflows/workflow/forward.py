@@ -323,7 +323,7 @@ class Forward:
     def prepare_freq_se(self,seed,**kwargs):
         
         logger.info(f" Preparing source encoding frequencies")
-        if (seed % 5) > 0 and seed != 1:
+        if (seed % 6) > 0 and seed != 1:
             return
         import random
         import numpy as np

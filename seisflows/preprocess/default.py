@@ -969,8 +969,8 @@ class Default:
                         #logger.info(f"Muting {t0}")
                         t0 = 0.0
                         data_obs *= 0.0
-                else:
-                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt  - t0))
+
+                data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt  - t0))
 
                 t0_array.append(t0)
                 # tr_obs.data = data_obs
@@ -1253,4 +1253,4 @@ def elastic_to_anelastic_adj(adj_data, dt, f0):
     atten_adj_source_2 = np.real(np.fft.ifft(F*amp))
     atten_adj_source = atten_adj_source_1 + atten_adj_source_2
 
-    return atten_adj_source
+    return atten_adj_source.copy()
