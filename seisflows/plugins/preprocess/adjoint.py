@@ -134,7 +134,6 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     return wadj
 
 
-
 def se_amplitude(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
                 rdi, fft_stf,gamma,t0_array,Wp):
