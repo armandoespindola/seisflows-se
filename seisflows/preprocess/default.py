@@ -610,25 +610,37 @@ class Default:
 
 
                 # Compute Wp weight by frequency
-                Wp = np.abs(fft_obs) * 0.0
+                Wp = np.abs(fft_obs) * 0.0 + 1.0
+
+                
+                for istat in range(0,len(syn)):
+                    obs_p = fft_obs[:,istat]
+                    syn_p = fft_syn[:,istat]
+                    ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
+                    phase_w = unwrap(np.angle(ratio_p))
+                    Wp[:,istat] *= phase_w 
+                    
                 for ifreq in range(len(freq)):
                     obs_p = fft_obs[ifreq,:]
                     syn_p = fft_syn[ifreq,:]
                     ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
-                    phase_w = unwrap(np.angle(ratio_p),t0_array[ifreq,:])
-                    #logger.info(f"T0: {t0_array[ifreq,:]}")
-                    #logger.info(f"Phase: {phase_w}")
-                    phase_w[np.abs(phase_w) > 0] = 1.0
-                    Wp[ifreq,:] = phase_w
+                    phase_w = unwrap_d(np.angle(ratio_p),t0_array[ifreq,:])
+                    # logger.info(f"T0: {t0_array[ifreq,:]}")
+                    # logger.info(f"Phase: {phase_w}")
+                    # phase_w[np.abs(phase_w) > 0] = 1.0
+                    Wp[ifreq,:] *= phase_w
                     #logger.info(f"Wp: {Wp[ifreq,:]}")
-                # Andreas avoid uq in teh phase
-                #Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
-                #Wp[ifreq,:] /= np.max(Wp[ifreq,:])  
+                    # Andreas avoid uq in teh phase
+                    # Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
+                    # Wp[ifreq,:] /= np.max(Wp[ifreq,:])
+
+                #Wp = np.log(1 + np.abs(fft_obs))
+                #Wp /= np.max(Wp)
 
 
                 for istat in range(0,len(syn)):
                     if self.mute or self.par['se_t0_mute']:
-                        fft_syn [abs(fft_obs) == 0] = 0.0
+                        fft_syn [np.abs(fft_obs) == 0.0] = 0.0
                     obs_data = fft_obs[:,istat]
                     syn_data = fft_syn[:,istat]
 
@@ -636,17 +648,20 @@ class Default:
                     #obs_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
                     #syn_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
 
+                    # import matplotlib
                     # import matplotlib.pyplot as plt
-                    # plt.figure()
+                    # matplotlib.use('Agg')
+
                     # if istat < len(freq):
-                    #    plt.plot(np.imag(fft_obs[istat,:] ),'ko-')
-                    #    plt.plot(np.imag(fft_syn[istat,:]),'r*-')
-                    # #plt.plot(np.abs(fft_obs[1,istat] - fft_syn[:,istat]) * 10 ,'b*-')
-                    # plt.figure()
+                    #     plt.figure()
+                    #     plt.plot(np.angle(fft_obs[istat,:]),'ko-')
+                    #     plt.plot(np.angle(fft_syn[istat,:]),'r*-')
+                    #     plt.savefig(f"phase_test_{istat}.png")
                     # if istat < len(freq):
-                    #    plt.plot(np.real(fft_obs[istat,:] ),'ko-')
-                    #    plt.plot(np.real(fft_syn[istat,:]),'b*-')
-                    
+                    #     plt.figure()
+                    #     plt.plot(np.real(fft_obs[istat,:]),'ko-')
+                    #     plt.plot(np.real(fft_syn[istat,:]),'b*-')
+                    #     plt.savefig(f"real_test_{istat}.png")
                     # plt.plot(np.unwrap(np.angle(fft_obs[90,:]) * Wp[90,:]),'ko-')
                     # plt.plot(np.unwrap(np.angle(fft_syn[90,:]) * Wp[90,:]),'b*-')
                     # plt.plot(np.angle(fft_syn[0,:]/fft_obs[90,:]) * Wp[90,:],'go-')
@@ -686,7 +701,6 @@ class Default:
                                 adjsrc_st_q.data[:] = 0.0
                                 adj_data =  adjsrc_st.data.copy()
                                 adjsrc_st_q.data = elastic_to_anelastic_adj(adj_data, se_dt, qf0)
-
 
                             #adjsrc_st.resample(sampling_rate= 0.50 / adjsrc_st.stats.delta)
                             #logger.info(f"{adjsrc_st.stats}")
@@ -902,6 +916,7 @@ class Default:
         freq = np.load(path_specfem_data + "/es_freq.npy")
         rdi = np.load(path_specfem_data + "/es_rdi.npy")
         freq_idx_glob = np.load(path_specfem_data + "/es_freq_idx_glob.npy")
+        fft_stf = np.load(path_specfem_data + "/fft_stf.npy")
         se_ntss = int((par['se_t'] - par['se_td']) / par['se_dwn'])
         logger.info("Preparing obs data for source encoding")
         if (par['se_t0']):
@@ -962,15 +977,17 @@ class Default:
                     t0 = pick_t0(data_obs,tr_obs.stats.delta,1.0 / par['se_max_freq'])
                 else:
                     t0 = 0.0
+                #logger.info(f"Muting {t0}")
                 #plt.plot(distance/1000,t0,"ro")
                 #data_obs_old = data_obs.copy()
                 if (par['se_t0_mute']) and (par['se_t0']):
                     if t0 < par['se_t0_min'] or t0 > par['se_t0_max']:
                         #logger.info(f"Muting {t0}")
                         t0 = 0.0
-                        data_obs *= 0.0
-                else:
-                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt  - t0))
+                        data_obs = data_obs * 0.0
+                    
+                #logger.info(f"Muting {t0}")
+                data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
 
                 t0_array.append(t0)
                 # tr_obs.data = data_obs
@@ -981,9 +998,14 @@ class Default:
                 # plt.plot(data_obs_old * np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * par['se_dt'])) ,'b')
                 # plt.show()
 
-                freq_obs = np.fft.fftfreq(len(data_obs),dt)
-                fft_obs  = fft(data_obs)[::ksample]
-                fftobs_full.append(fft_obs[freq_idx_glob[ifreq]])
+                
+                fft_obs  = fft(data_obs)[::ksample] #* np.exp(t0 * par['se_gamma'])
+                freq_obs = np.fft.fftfreq(len(fft_obs),dt)
+                #factor = np.exp(1j * freq_obs * 2.0 * np.pi * td)
+                factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
+                fft_obs *= factor  * -1.0j
+#                fft_obs[freq_idx_glob] /= fft_stf
+                fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])
             #obs_data_raw.plot(type='section',fig=fig,color='red')
             #obs_data.plot(type='section',fig=fig)
             #plt.ylim((0,10))
@@ -1170,13 +1192,13 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
         fft_syn  = fft(data_syn)
         freq_syn = fftfreq(ntss,dt)
         # Compensating by TD transient duration
-        fft_syn *= np.exp(-1j * freq_syn * 2 * np.pi * dt * par['se_td'] / par['se_dwn'])
+        #fft_syn *= np.exp(-1j * freq_syn * 2 * np.pi * dt * par['se_td'] / par['se_dwn'])
 
         # Compensate sin to cosine Ricker wavelet
-        fft_syn *=  1j
+        #fft_syn *=  1j
 
         # Compensate for dt and integraton 2 / dtao
-        fft_syn *= dt *  2.0 / (ntss * dt)
+        fft_syn *= 2.0 / ntss 
 
             # # Compensate for source
             #logger.info(f"{stf.shape}")                
@@ -1184,7 +1206,10 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
 
             #fft_syn *= fft_stf * 1.0e-10
 
-        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
+#        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+        
+        #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
         
 
     path = os.path.join(path_scratch,"001","traces")
@@ -1194,7 +1219,7 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
 
 
 
-def unwrap(data,t0):
+def unwrap_d(data,t0):
     ''' get unwrapped  angle the data according to the traveltime.
         We will apply np.unwrap according to the traveltime. 
         INPUT
@@ -1206,28 +1231,38 @@ def unwrap(data,t0):
     idxgreat0 = (t0>0)
     t0fil = t0[idxgreat0]
     idxmin = np.argmin(abs(t0fil))
+    print("t0_idx: ",idxmin)
     #logger.info(f"idx: {idxmin}")
     data_sel = data[idxgreat0]
+    phase_ww = np.ones(len(data_sel))
     phase_temp = np.zeros(data_sel.shape)
-
 
     
     for i in range(len(data_sel)):
         if i < idxmin:
-            if abs(data_sel[i]) > 1.6:
-                data_sel[:i + 1:] = 0.0
+            if abs(data_sel[i]) > 1.6 or np.isnan(data_sel[i]):
+                phase_ww[:i + 1:] = np.nan
                 
         if i > idxmin:
-            if abs(data_sel[i]) > 1.6:
-                data_sel[i::] = 0.0
+            if abs(data_sel[i]) > 1.6 or np.isnan(data_sel[i]):
+                phase_ww[i::] = np.nan
 
 
-    if abs(data_sel[idxmin]) > 1.6:
-        data_sel[:] = 0.0
+    if abs(data_sel[idxmin]) > 1.6 or np.isnan(data_sel[idxmin]):
+        phase_ww[:] = np.nan
                 
-    phase_unwrap[idxgreat0] = data_sel
+    phase_unwrap[idxgreat0] = phase_ww
     
     return phase_unwrap
+
+
+def unwrap(data_phase):
+    phase_w = np.ones(len(data_phase))
+    for i in range(len(data_phase)):
+        if abs(data_phase[i]) > np.pi / 2.0:
+            phase_w[i] = np.nan
+            phase_w[i:] = np.nan
+    return phase_w
 
 
 

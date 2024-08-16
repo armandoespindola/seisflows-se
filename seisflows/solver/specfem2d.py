@@ -48,7 +48,10 @@ class Specfem2D(Specfem):
         elif self.materials.upper() == "ELASTIC":
             self._parameters += ["vp", "vs"]
         elif self.materials.upper() == "ANELASTIC":
-            self._parameters +=["vp", "vs","Qmu"]
+            if kwargs['q_only']:
+                self._parameters +=["Qmu"]
+            else:
+                self._parameters +=["vp", "vs","Qmu"]
         
 
     def setup(self):

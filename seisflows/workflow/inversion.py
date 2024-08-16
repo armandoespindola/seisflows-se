@@ -85,7 +85,7 @@ class Inversion(Migration):
         self.end = end
         self.export_model = export_model
         self.thrifty = thrifty
-
+        self.kargs = kwargs
         # Append an additional path for line search function evaluations
         self.path["eval_func"] = path_eval_func or \
                                  os.path.join(self.path.workdir, "scratch",
@@ -126,15 +126,25 @@ class Inversion(Migration):
 
         if self.materials.upper() == "ANELASTIC":
 
-            tasks = [self.evaluate_initial_misfit,
-                     self.run_adjoint_simulations,
-                     self.run_adjoint_simulations_q,
-                self.postprocess_event_kernels,
-                self.evaluate_gradient_from_kernels,
-                self.initialize_line_search,
-                self.perform_line_search,
-                self.finalize_iteration
-                ]
+            if self.kargs['q_only']:
+                tasks = [self.evaluate_initial_misfit,
+                         self.run_adjoint_simulations_q,
+                         self.postprocess_event_kernels,
+                         self.evaluate_gradient_from_kernels,
+                         self.initialize_line_search,
+                         self.perform_line_search,
+                         self.finalize_iteration
+                         ]
+            else:    
+                tasks = [self.evaluate_initial_misfit,
+                         self.run_adjoint_simulations,
+                         self.run_adjoint_simulations_q,
+                         self.postprocess_event_kernels,
+                         self.evaluate_gradient_from_kernels,
+                         self.initialize_line_search,
+                         self.perform_line_search,
+                         self.finalize_iteration
+                         ]
         else:
     
             tasks = [self.evaluate_initial_misfit,

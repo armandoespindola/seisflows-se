@@ -58,12 +58,18 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
-    residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
+    
+    #residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
+
+    residual *= 1.0 * np.exp(gamma * t0_array) #* t0_array
+
+
+
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
+       
     wadj = np.real(ifft(fft_wadj))
-
-    
+        
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
     wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt))
     ntaper = np.int(0.025 * nt) # 5% taper
@@ -94,22 +100,24 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     #plt.figure()
     #plt.plot(np.angle(ratio),'g')
     #plt.show()
-    ratio *= Wp
+    #ratio *= Wp
 
-#    ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
-    residual = np.sin(np.angle(ratio)) 
+#   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
+    residual = np.sin(np.angle(ratio))
+    #residual[np.isnan(Wp)] = 0.0 
+    
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
 
     amp_syn = np.abs(syn)
-    #amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0 
+    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
     phase = np.angle(syn)
 
-    residual = residual *  np.conj(fft_stf) * syn 
+    residual = 1j * residual * syn 
     residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
 
-    residual *= np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
+    residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
     wadj = np.real(ifft(fft_wadj))
@@ -134,6 +142,57 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     return wadj
 
 
+def se_amplitude(syn, obs, se_t, se_td, se_tse,
+                se_dt, nt_se,freq, freq_idx,
+                 rdi, fft_stf,gamma,t0_array,Wp):
+    """
+    :type syn: np.array
+    :param syn: synthetic data array
+    :type obs: np.array
+    :param obs: observed data array
+    """
+    import matplotlib.pyplot as plt
+    from scipy.fft import fft,fftfreq,ifft
+
+
+    amp_syn = np.abs(syn)
+    amp_obs = np.abs(obs)
+
+    ratio = np.divide(amp_syn, amp_obs, out=np.ones_like(amp_syn), where=amp_obs!=0)
+    
+    residual = np.log(ratio) #* Wp
+
+    nt = se_t
+    fft_wadj = np.zeros(nt_se, dtype=complex)
+    omega = 2.0 * np.pi * freq
+
+
+    residual = residual * syn 
+    residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
+
+    residual *= np.exp(gamma * t0_array) #* t0_array
+    fft_wadj[freq_idx] = residual
+    fft_wadj[-freq_idx] = np.conj(residual)
+    wadj = np.real(ifft(fft_wadj))
+    #wadj[:] = 1.0     
+    wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
+    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
+    ntaper = np.int(0.025 * nt) # 5% taper
+    wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
+
+    # plt.figure()
+    # plt.plot(np.abs(residual),'b')
+    # plt.figure()
+    # plt.plot(Wp,'r')
+    # plt.show()
+
+    
+    # plt.figure()
+    # plt.plot(wadj,'b')
+    # plt.show()
+
+    return wadj
 
 
 
@@ -359,3 +418,20 @@ def acceleration(syn, obs, nt, dt, *args, **kwargs):
 
     return adj
 
+
+
+def elastic_to_anelastic_adj(ndata, dt, f0):
+    # from scipy.fftpack import hilbert as hilbert_transform
+    twopi = 2*np.pi
+    w0 = twopi*f0
+    freqs = np.fft.fftfreq(ndata, d=dt)
+    w = twopi*freqs
+    w[0] = w0
+    phy = (2/np.pi)*np.log(np.abs(w)/w0)
+
+    phy[0] = phy[1]
+    adj_disp = phy
+
+    amp = -1j*np.sign(w)
+    adj_amp = amp
+    return adj_disp,adj_amp

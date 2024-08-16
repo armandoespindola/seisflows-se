@@ -655,6 +655,7 @@ class Specfem:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
             elif adjoint_q:
+                logger.info(f"Moving {self._parameters[-1]}")
                 for par in [self._parameters[-1]]:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
