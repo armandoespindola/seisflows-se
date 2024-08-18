@@ -142,6 +142,8 @@ class Forward:
             self.se_gamma = kwargs['se_gamma']
             self.se_nbands = kwargs['se_nbands']
             self.se_dwn = kwargs['se_dwn']
+            self.se_bunks = kwargs['se_bunks']
+            self.se_bunks_fmax = kwargs['se_bunks_fmax']
 
 
     @property
@@ -323,8 +325,8 @@ class Forward:
     def prepare_freq_se(self,seed,**kwargs):
         
         logger.info(f" Preparing source encoding frequencies")
-        if (seed % 5) > 0 and seed != 1:
-            return
+        # if (seed % 5) > 0 and seed != 1:
+        #     return
         import random
         import numpy as np
         from scipy.fft import fft,fftfreq
@@ -342,10 +344,18 @@ class Forward:
         f0 = 1.0 / (se_ntss * se_dt)
         
         fn = 1.0 / (2.0 * se_dt)
+
+
+        if self.se_bunks:
+            se_max_freq_temp = self.se_max_freq + seed * f0
+            if se_max_freq_temp > self.se_bunks_fmax:
+                se_max_freq_temp = self.se_bunks_fmax
+        else:
+            se_max_freq_temp =  self.se_max_freq   
         
         imin = int(np.ceil(self.se_min_freq / f0))
         
-        imax = int(np.floor(self.se_max_freq / f0))
+        imax = int(np.floor(se_max_freq_temp / f0))
         
         w_v = np.fft.fftfreq(se_ntss,se_dt)[imin:imax]
         
