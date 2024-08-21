@@ -327,12 +327,13 @@ class Migration(Forward):
         if self.solver.materials.upper() == "ANELASTIC" :
             import numpy as np
 
-            if not self.kargs['q_only']:
-                for iproc in range(len(model.model['vs'])):
-                    idx = np.where(model.model['vs'][iproc] == 0.0)
-                    # logger.info(f"{idx}")
+
+            for iproc in range(len(model.model['Qmu'])):
+                idx = np.where(model.model['Qmu'][iproc] <= 1/9998.0)
+                # logger.info(f"{idx}")
+                if not self.kargs['q_only']:
                     gradient.model['vp_kernel'][iproc][idx] = 0.0
-                    gradient.model['Qmu_kernel'][iproc][idx] = 0.0
+                gradient.model['Qmu_kernel'][iproc][idx] = 0.0
 
             gradient.model['Qmu_kernel'][:][:] *= 1.0 / model.model['Qmu'][:][:]
                 

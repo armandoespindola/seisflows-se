@@ -623,23 +623,27 @@ class Specfem:
         # Change directory so that the rename doesn't affect the full path
         # Deals with both SPECFEM3D and 3D_GLOBE, which adds in the 'reg?' tag
         unix.cd(self.kernel_databases)
-        for tag in ["alpha", "alpha[hv]", "reg?_alpha", "reg?_alpha[hv]"]:
-            names = glob(self.model_wildcard(par=tag, kernel=True))
-            if names:
-                logger.debug(f"renaming output event kernels: '{tag}' -> 'vp'")
-                unix.rename(old="alpha", new="vp", names=names)
 
-        for tag in ["beta", "beta[hv]", "reg?_beta", "reg?_beta[hv]"]:
-            names = glob(self.model_wildcard(par=tag, kernel=True))
-            if names:
-                logger.debug(f"renaming output event kernels: '{tag}' -> 'vs'")
-                unix.rename(old="beta", new="vs", names=names)
+        if not adjoint_q:
+            for tag in ["alpha", "alpha[hv]", "reg?_alpha", "reg?_alpha[hv]"]:
+                names = glob(self.model_wildcard(par=tag, kernel=True))
+                if names:
+                    logger.debug(f"renaming output event kernels: '{tag}' -> 'vp'")
+                    unix.rename(old="alpha", new="vp", names=names)
 
-        for tag in ["mu", "reg?_mu", "reg?_mu"]:
-            names = glob(self.model_wildcard(par=tag, kernel=True))
-            if names:
-                logger.debug(f"renaming output event kernels: '{tag}' -> 'Qmu'")
-                unix.rename(old="mu", new="Qmu", names=names)
+            for tag in ["beta", "beta[hv]", "reg?_beta", "reg?_beta[hv]"]:
+                names = glob(self.model_wildcard(par=tag, kernel=True))
+                if names:
+                    logger.debug(f"renaming output event kernels: '{tag}' -> 'vs'")
+                    unix.rename(old="beta", new="vs", names=names)
+
+        elif adjoint_q:
+            for tag in ["mu", "reg?_mu", "reg?_mu"]:
+            #for tag in ["beta", "beta[hv]", "reg?_beta", "reg?_beta[hv]"]:
+                names = glob(self.model_wildcard(par=tag, kernel=True))
+                if names:
+                    logger.debug(f"renaming output event kernels: '{tag}' -> 'Qmu'")
+                    unix.rename(old="mu", new="Qmu", names=names)
 
         # Save and export the kernels to user-defined locations
         if export_kernels:

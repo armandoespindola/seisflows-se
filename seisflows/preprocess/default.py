@@ -700,7 +700,8 @@ class Default:
                                 adjsrc_st_q = syn[istat].copy()
                                 adjsrc_st_q.data[:] = 0.0
                                 adj_data =  adjsrc_st.data.copy()
-                                adjsrc_st_q.data = elastic_to_anelastic_adj(adj_data, se_dt, qf0)
+                                adjsrc_st_q.data = elastic_to_anelastic_adj(adj_data, se_dt, qf0,freq_idx_glob,
+                                                                            self.par['se_gamma'])
 
                             #adjsrc_st.resample(sampling_rate= 0.50 / adjsrc_st.stats.delta)
                             #logger.info(f"{adjsrc_st.stats}")
@@ -1266,11 +1267,12 @@ def unwrap(data_phase):
 
 
 
-def elastic_to_anelastic_adj(adj_data, dt, f0):
+def elastic_to_anelastic_adj(adj_data, dt, f0,freq_idx,gamma):
     # from scipy.fftpack import hilbert as hilbert_transform
     twopi = 2*np.pi
     w0 = twopi*f0
     f = adj_data  # forward in time
+    f *= np.exp(1.0 * gamma * (np.arange(len(f)) * dt))
     # f = adj.adjoint_source
     F = np.fft.fft(f)
     freqs = np.fft.fftfreq(len(f), d=dt)
@@ -1278,14 +1280,20 @@ def elastic_to_anelastic_adj(adj_data, dt, f0):
     # fig, ax = plt.subplots()
     w[0] = w0
     # phy = np.conj((2/np.pi)*np.l# o
+    w_zero = np.zeros(len(f))
+    w_zero[freq_idx] = 1.0
+    w_zero[-freq_idx] = 1.0
     phy = (2/np.pi)*np.log(np.abs(w)/w0)
     # g(np.abs(w)/w0))
     # phy = np.log(np.abs(w)/w0)
     phy[0] = phy[1]
+    phy *= w_zero
     atten_adj_source_1 = np.real(np.fft.ifft(F*phy))
 
-    amp = -1j*np.sign(w)
+    amp = -1j*np.sign(w) * w_zero
     atten_adj_source_2 = np.real(np.fft.ifft(F*amp))
     atten_adj_source = atten_adj_source_1 + atten_adj_source_2
+
+    atten_adj_source *= np.exp(-1.0 * gamma * (np.arange(len(f)) * dt))
 
     return atten_adj_source

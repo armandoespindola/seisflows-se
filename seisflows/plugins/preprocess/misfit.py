@@ -233,6 +233,12 @@ def se_amplitude(syn,obs):
     misfit = 0.5 * sum(np.multiply(residual,residual))
     return misfit
 
+
+def se_amp_phase(syn,obs):
+    amp_misfit = se_amplitude(syn,obs)
+    phase_misfit = se_phase(syn,obs)
+    misfit = amp_misfit + phase_misfit
+    return misfit
     
     
 def displacement(*args, **kwargs):

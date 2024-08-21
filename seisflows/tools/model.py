@@ -397,13 +397,17 @@ class Model:
             logger.warning(f"Vp minimum is negative {self.model.vp.min()}")
 
 
-        if "Qmu" in self.model:
-            for iproc in range(self.nproc):
-                dat = self.model['Qmu'][iproc][:].copy()
-                dat[dat < 0.0] = 1.0 / 9999
-                dat[abs(dat) < 1.0/9999] = 1.0 / 9999
-                dat[dat > 1/30] = 1/30
-                self.model['Qmu'][iproc][:] = dat.copy()
+        # if "Qmu" in self.model:
+        #     logger.warning(f"Qmu minimum is  {self.model.Qmu.min()}")
+        # if "vp" in self.model and np.hstack(self.model.vp).min() < 0:
+        #     logger.warning(f"Qmu maximum is  {self.model.Qmu.min()}")
+
+            # for iproc in range(self.nproc):
+            #     dat = self.model['Qmu'][iproc][:].copy()
+            #     dat[dat < 0.0] = 1.0 / 9999
+            #     dat[abs(dat) < 1.0/9999] = 1.0 / 9999
+            #     dat[dat > 1/10] = 1/10
+            #     self.model['Qmu'][iproc][:] = dat.copy()
 
         # Tell the User min and max values of the updated model
         for key, vals in self.model.items():
@@ -541,6 +545,8 @@ class Model:
             # Special case where we are using SPECFEM2D and carry around coords
             elif "coord" in key:
                 coords[key[0]] = data[key]  # drop '_coord' suffix from `save`
+            elif "Qmu" in key:
+                model[key] = data[key]
             else:
                 model[key] = data[key]
                 # Assign the number of GLL points per slice. Only needs to happen
