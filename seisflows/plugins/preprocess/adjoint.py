@@ -43,7 +43,7 @@ def waveform(syn, obs, *args, **kwargs):
 
 def se_waveform(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp):
+                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -53,6 +53,9 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     import matplotlib.pyplot as plt
     from scipy.fft import fft,fftfreq,ifft
     residual = syn - obs
+
+    if dd_diff:
+        residual = dd_r
     #residual *= Wp
     #residual[abs(obs) == 0.0] = 0.0 
     nt = se_t
@@ -86,7 +89,7 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
 # Exponential phase adjoint source
 def se_phase(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp):
+                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -103,7 +106,10 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     #ratio *= Wp
 
 #   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
-    residual = np.sin(np.angle(ratio))
+    residual = np.sin(0.5 * np.angle(ratio))
+
+    if dd_diff:
+        residual = dd_r
     #residual[np.isnan(Wp)] = 0.0 
     
     nt = se_t
@@ -117,7 +123,7 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     residual = 1j * residual * syn 
     residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
 
-    residual *= np.exp(gamma * t0_array) * t0_array
+    residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
     wadj = np.real(ifft(fft_wadj))
@@ -144,7 +150,7 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
 
 def se_amplitude(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                 rdi, fft_stf,gamma,t0_array,Wp):
+                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -162,6 +168,9 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     
     residual = np.log(ratio) #* Wp
 
+    if dd_diff:
+        residual = dd_r
+
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
@@ -170,7 +179,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     residual = residual * syn 
     residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
 
-    residual *= np.exp(gamma * t0_array) * t0_array
+    residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
     wadj = np.real(ifft(fft_wadj))
@@ -198,7 +207,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
 
 def se_amp_phase(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp):
+                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -208,11 +217,11 @@ def se_amp_phase(syn, obs, se_t, se_td, se_tse,
 
     amp_adj = se_amplitude(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp)
+                           rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff)
 
     phase_adj = se_phase(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp)
+                         rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff)
 
     wadj =  amp_adj + phase_adj
     

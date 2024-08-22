@@ -527,7 +527,9 @@ class Default:
             should be provided by the `optimize` module if we are running an
             inversion. Defaults to 0 if not given (1st evaluation)
         """
-
+        if self.par['se_double_difference']:
+            logger.info('Double difference')
+                       
         observed, synthetic = self._setup_quantify_misfit(source_name)
         if self.materials.upper() == "ANELASTIC":
             adjsrc_q = Stream()
@@ -678,8 +680,21 @@ class Default:
                     if os.path.basename(syn_fid)[1].upper() in list(self.par['components']):
                         #logger.info(f"computing misfit and adjoint {syn_fid} - {obs_fid}")
                         if save_residuals and self._calculate_misfit:
-                            residual = self._calculate_misfit(
+                            residual,diff = self._calculate_misfit(
                                 obs=obs_data, syn=syn_data)
+
+                            if self.par['se_double_difference']:
+                                #logger.info('Double difference')
+                                residual = 0.0
+                                diff_sum = np.zeros(len(diff))
+                                for jstat in range(0,len(syn)):
+                                    if istat != jstat:
+                                        _,diff2 = self._calculate_misfit(obs=fft_obs[:,jstat],
+                                                                           syn=fft_syn[:,jstat])
+                                        diff_sum = np.nansum([diff_sum,diff2],axis=0)
+
+                                diff = -1.0 * (diff - diff_sum)
+                                residual = 0.5 * np.sqrt(np.sum(np.multiply(diff,diff)))
                             #logger.info(f"{residual}")
                 
                             with open(save_residuals, "a") as f:
@@ -694,7 +709,7 @@ class Default:
                                 se_t = se_t, se_td = se_td, se_tse = se_ntss * se_dt,
                                 se_dt = se_dt, nt_se = nt_ss,freq = freq, freq_idx = freq_idx_glob,
                                 rdi = rdi, fft_stf = fft_stf,gamma = self.par['se_gamma'],t0_array=t0_array[:,istat],
-                                Wp = Wp[:,istat])
+                                Wp = Wp[:,istat],dd_r=diff,dd_diff=self.par['se_double_difference'])
 
                             if self.materials.upper() == "ANELASTIC":
                                 adjsrc_st_q = syn[istat].copy()
@@ -989,6 +1004,7 @@ class Default:
                     
                 #logger.info(f"Muting {t0}")
                 data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
+                data_obs *= np.exp(-1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
 
                 t0_array.append(t0)
                 # tr_obs.data = data_obs
@@ -1004,6 +1020,7 @@ class Default:
                 freq_obs = np.fft.fftfreq(len(fft_obs),dt)
                 #factor = np.exp(1j * freq_obs * 2.0 * np.pi * td)
                 factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
+                factor *= np.exp(-1j * freq_obs * 2.0 * np.pi * 1.20 / freq[ifreq])
                 fft_obs *= factor  * -1.0j
 #                fft_obs[freq_idx_glob] /= fft_stf
                 fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])

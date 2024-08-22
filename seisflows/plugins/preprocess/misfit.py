@@ -210,16 +210,16 @@ def instantaneous_phase2(syn, obs, nt, dt, eps=0., *args, **kwargs):
 def se_waveform(syn,obs):
     residual = syn - obs
     misfit = np.sum(np.multiply(residual,np.conj(residual)))
-    return np.sqrt(np.real(misfit))
+    return np.sqrt(np.real(misfit)),residual
 
 def se_phase(syn,obs):
     # Exponential Phase Misfit
     # ratio = syn / obs
     ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
-    angle_unwrap = np.unwrap(np.angle(ratio))
-    residual = np.sqrt(2) * np.sin(0.50 * angle_unwrap)
-    misfit = np.sqrt(np.sum(np.multiply(residual,residual)))
-    return misfit
+    #angle_unwrap = np.unwrap(np.angle(ratio))
+    residual = np.sin(0.50 * np.angle(ratio))
+    misfit = 2.0 * np.sqrt(np.sum(np.multiply(residual,residual)))
+    return misfit,residual
 
 
 def se_amplitude(syn,obs):
@@ -231,14 +231,15 @@ def se_amplitude(syn,obs):
     ratio = np.divide(amp_syn, amp_obs, out=np.ones_like(amp_syn), where=amp_obs!=0)
     residual = np.log(ratio)
     misfit = 0.5 * sum(np.multiply(residual,residual))
-    return misfit
+    return misfit,residual
 
 
 def se_amp_phase(syn,obs):
-    amp_misfit = se_amplitude(syn,obs)
-    phase_misfit = se_phase(syn,obs)
+    amp_misfit,amp_residual = se_amplitude(syn,obs)
+    phase_misfit,phase_residual = se_phase(syn,obs)
     misfit = amp_misfit + phase_misfit
-    return misfit
+    residual = amp_residual + phase_residual
+    return misfit,residual
     
     
 def displacement(*args, **kwargs):

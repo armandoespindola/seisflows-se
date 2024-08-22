@@ -433,7 +433,7 @@ class Forward:
             source_file = os.path.join(self.path_specfem_data, name_source)
             unix.cp(source_file,source_file + ".bak")
             setpar(key="f0",
-                   val="{:.4e}".format(w_v[ifreq]),
+                   val="{:.8e}".format(w_v[ifreq]),
                    file=source_file + ".bak")
             setpar(key="time_function_type",
                    val="10",
