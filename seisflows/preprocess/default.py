@@ -687,8 +687,8 @@ class Default:
                                 #logger.info('Double difference')
                                 residual = 0.0
                                 diff_sum = np.zeros(len(diff))
-                                for jstat in range(0,len(syn)):
-                                    if istat != jstat:
+                                for jstat in range(istat - 5,istat + 5):
+                                    if istat != jstat and jstat > 0 and jstat < len(syn):
                                         _,diff2 = self._calculate_misfit(obs=fft_obs[:,jstat],
                                                                            syn=fft_syn[:,jstat])
                                         diff_sum = np.nansum([diff_sum,diff2],axis=0)
