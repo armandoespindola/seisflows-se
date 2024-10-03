@@ -81,9 +81,13 @@ def cp(src, dst):
 
     if os.path.isfile(src):
         shutil.copy(src, dst)
+        #import subprocess
+        #subprocess.call(f'cp  {src} {dst}', shell=True)
 
     elif os.path.isdir(src):
         shutil.copytree(src, dst)
+        #import subprocess
+        #subprocess.call(f'cp -r {src} {dst}', shell=True)
 
 
 def hostname():
@@ -176,6 +180,8 @@ def mv(src, dst):
         if os.path.isdir(dst):
             dst = os.path.join(dst, os.path.basename(src))
         shutil.move(src, dst)
+        #import subprocess
+        #subprocess.call(f'mv  {src} {dst}', shell=True)
 
 
 def rename(old, new, names):

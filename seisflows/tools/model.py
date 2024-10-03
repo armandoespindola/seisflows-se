@@ -397,17 +397,17 @@ class Model:
             logger.warning(f"Vp minimum is negative {self.model.vp.min()}")
 
 
-        # if "Qmu" in self.model:
-        #     logger.warning(f"Qmu minimum is  {self.model.Qmu.min()}")
-        # if "vp" in self.model and np.hstack(self.model.vp).min() < 0:
-        #     logger.warning(f"Qmu maximum is  {self.model.Qmu.min()}")
-
-            # for iproc in range(self.nproc):
-            #     dat = self.model['Qmu'][iproc][:].copy()
-            #     dat[dat < 0.0] = 1.0 / 9999
-            #     dat[abs(dat) < 1.0/9999] = 1.0 / 9999
-            #     dat[dat > 1/10] = 1/10
-            #     self.model['Qmu'][iproc][:] = dat.copy()
+        if "Qmu" in self.model:
+            
+            for iproc in range(self.nproc):
+                dat = self.model['Qmu'][iproc][:].copy()
+                dat[dat < 0.0] = 1.0 / 200.0
+                dat[abs(dat) < 1.0/200.0] = 1.0 / 200.0
+                dat[dat > 1/30] = 1/30
+                self.model['Qmu'][iproc][:] = dat.copy()
+                
+                idx = np.where(self.model['vs'][iproc] == 0.0)
+                self.model['Qmu'][iproc][idx] = 1.0 / 9999 
 
         # Tell the User min and max values of the updated model
         for key, vals in self.model.items():

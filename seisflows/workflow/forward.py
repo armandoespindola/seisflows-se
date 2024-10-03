@@ -144,6 +144,7 @@ class Forward:
             self.se_dwn = kwargs['se_dwn']
             self.se_bunks = kwargs['se_bunks']
             self.se_bunks_fmax = kwargs['se_bunks_fmax']
+            self.se_random_niter = kwargs['se_random_niter']
 
 
     @property
@@ -325,8 +326,8 @@ class Forward:
     def prepare_freq_se(self,seed,**kwargs):
         
         logger.info(f" Preparing source encoding frequencies")
-        # if (seed % 5) > 0 and seed != 1:
-        #     return
+        if (seed % (self.se_random_niter + 1)) > 0 and seed != 1:
+            return
         import random
         import numpy as np
         from scipy.fft import fft,fftfreq

@@ -106,26 +106,38 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     #ratio *= Wp
 
 #   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
-    residual = np.sin(0.5 * np.angle(ratio))
+    residual = np.sin(0.5 * np.angle(ratio) * Wp)
 
     if dd_diff:
-        residual = dd_r
+        if isinstance(dd_r,list):
+            residual = dd_r[0]
+        else:
+            residual =  dd_r
+        
     #residual[np.isnan(Wp)] = 0.0 
     
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
 
+    # Arm: I added a threshold for smaller amplitudes
     amp_syn = np.abs(syn)
     amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
     phase = np.angle(syn)
 
-    residual = 1j * residual * syn 
-    residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = residual * syn * 1j
+
+    # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
+    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
 
     residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
+
+    # wadj = np.zeros(nt_se)
+    # for i in range(0,len(residual)):
+    #     wadj += residual[i] * np.sin(omega[i] * np.arange(nt_se) * se_dt - phase[i])
+        
     wadj = np.real(ifft(fft_wadj))
     #wadj[:] = 1.0     
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
@@ -169,15 +181,24 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     residual = np.log(ratio) #* Wp
 
     if dd_diff:
-        residual = dd_r
+        if isinstance(dd_r,list):
+            residual = dd_r[1]
+        else:
+            residual = dd_r
 
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
 
 
-    residual = residual * syn 
-    residual = np.divide(residual, amp_syn**2.0, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = residual * syn
+
+    # Arm: I added a threshold for smaller amplitudes
+    amp_syn = np.abs(syn)
+    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+    
+    # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
+    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
 
     residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual

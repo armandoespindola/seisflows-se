@@ -615,29 +615,30 @@ class Default:
                 Wp = np.abs(fft_obs) * 0.0 + 1.0
 
                 
-                for istat in range(0,len(syn)):
-                    obs_p = fft_obs[:,istat]
-                    syn_p = fft_syn[:,istat]
-                    ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
-                    phase_w = unwrap(np.angle(ratio_p))
-                    Wp[:,istat] *= phase_w 
+                # for istat in range(0,len(syn)):
+                #     obs_p = fft_obs[:,istat]
+                #     syn_p = fft_syn[:,istat]
+                #     ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
+                #     phase_w = unwrap(np.angle(ratio_p))
+                #     Wp[:,istat] *= phase_w
+                    
                     
                 for ifreq in range(len(freq)):
-                    obs_p = fft_obs[ifreq,:]
-                    syn_p = fft_syn[ifreq,:]
-                    ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
-                    phase_w = unwrap_d(np.angle(ratio_p),t0_array[ifreq,:])
+                    # obs_p = fft_obs[ifreq,:]
+                    # syn_p = fft_syn[ifreq,:]
+                    # ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
+                    # phase_w = unwrap_d(np.angle(ratio_p),t0_array[ifreq,:])
                     # logger.info(f"T0: {t0_array[ifreq,:]}")
                     # logger.info(f"Phase: {phase_w}")
                     # phase_w[np.abs(phase_w) > 0] = 1.0
-                    Wp[ifreq,:] *= phase_w
+                    # Wp[ifreq,:] *= phase_w
                     #logger.info(f"Wp: {Wp[ifreq,:]}")
                     # Andreas avoid uq in teh phase
-                    # Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
-                    # Wp[ifreq,:] /= np.max(Wp[ifreq,:])
+                    Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
+                    Wp[ifreq,:] /= np.max(Wp[ifreq,:])
 
-                #Wp = np.log(1 + np.abs(fft_obs))
-                #Wp /= np.max(Wp)
+                # Wp = np.log(1 + np.abs(fft_obs))
+                # Wp /= np.max(Wp)
 
 
                 for istat in range(0,len(syn)):
@@ -681,20 +682,35 @@ class Default:
                         #logger.info(f"computing misfit and adjoint {syn_fid} - {obs_fid}")
                         if save_residuals and self._calculate_misfit:
                             residual,diff = self._calculate_misfit(
-                                obs=obs_data, syn=syn_data)
+                                obs=obs_data, syn=syn_data, Wp = Wp[:,istat])
 
                             if self.par['se_double_difference']:
                                 #logger.info('Double difference')
                                 residual = 0.0
-                                diff_sum = np.zeros(len(diff))
-                                for jstat in range(istat - 5,istat + 5):
-                                    if istat != jstat and jstat > 0 and jstat < len(syn):
-                                        _,diff2 = self._calculate_misfit(obs=fft_obs[:,jstat],
-                                                                           syn=fft_syn[:,jstat])
-                                        diff_sum = np.nansum([diff_sum,diff2],axis=0)
+                                if isinstance(diff,list):
+                                    nlen = len(diff[0])
+                                else:
+                                    nlen = len(diff)
+                                diff_sum = np.zeros(nlen)
+                                diff_sum1 = np.zeros(nlen)
+                                diff_sum2 = np.zeros(nlen)
+                                for jstat in range(0,nlen):
+                                    if istat != jstat: # and jstat > 0 and jstat < len(syn):
+                                        _,diff2 = self._calculate_misfit(obs=obs_data * fft_syn[:,jstat],
+                                                                           syn=syn_data * fft_obs[:,jstat],Wp = Wp[:,istat])
+                                        if isinstance(diff2,list):
+                                            diff_sum1 = np.nansum([diff_sum1,diff2[0]],axis=0)
+                                            diff_sum2 = np.nansum([diff_sum2,diff2[1]],axis=0)
+                                        else:
+                                            diff_sum = np.nansum([diff_sum,diff2],axis=0)
 
-                                diff = -1.0 * (diff - diff_sum)
-                                residual = 0.5 * np.sqrt(np.sum(np.multiply(diff,diff)))
+                                if isinstance(diff2,list):
+                                    diff = [diff_sum1,diff_sum2]
+                                    residual = 0.5 * np.sqrt(np.sum(diff_sum1 * diff_sum1 + diff_sum2 *
+                                                                    diff_sum2))
+                                else:
+                                    diff = diff_sum
+                                    residual = 0.5 * np.sqrt(np.sum(np.multiply(diff_sum,diff_sum)))
                             #logger.info(f"{residual}")
                 
                             with open(save_residuals, "a") as f:
@@ -1004,7 +1020,7 @@ class Default:
                     
                 #logger.info(f"Muting {t0}")
                 data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
-                data_obs *= np.exp(-1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
+                # data_obs *= np.exp(-1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
 
                 t0_array.append(t0)
                 # tr_obs.data = data_obs
@@ -1020,7 +1036,7 @@ class Default:
                 freq_obs = np.fft.fftfreq(len(fft_obs),dt)
                 #factor = np.exp(1j * freq_obs * 2.0 * np.pi * td)
                 factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
-                factor *= np.exp(-1j * freq_obs * 2.0 * np.pi * 1.20 / freq[ifreq])
+                # factor *= np.exp(-1j * freq_obs * 2.0 * np.pi * 1.20 / freq[ifreq])
                 fft_obs *= factor  * -1.0j
 #                fft_obs[freq_idx_glob] /= fft_stf
                 fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])

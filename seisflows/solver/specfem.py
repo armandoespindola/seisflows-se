@@ -664,6 +664,12 @@ class Specfem:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
 
+        unix.mkdir(self.path.eval_grad + "/H_nosmooth")
+        unix.mkdir(self.path.eval_grad + "/Hessian")
+        
+        unix.mv(src=glob('*Hessian1_kernel.bin'),
+                            dst=self.path.eval_grad + "/H_nosmooth")
+
     def combine(self, input_path, output_path, parameters=None):
         """
         Wrapper for 'xcombine_sem'.

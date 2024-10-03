@@ -138,7 +138,7 @@ class Migration(Forward):
         for ifile in glob(os.path.join(self.solver.cwd,"traces/adj/*.adj_e")):
             name_new = os.path.dirname(ifile) + "/" + os.path.basename(ifile).split("_e")[0]
             unix.rm(name_new)
-            logger.info(f" aaaa - {name_new}")
+            #logger.info(f" aaaa - {name_new}")
             unix.ln(ifile, dst=name_new)          
         def run_adjoint_simulation():
             """Adjoint simulation function to be run by system.run()"""
@@ -259,6 +259,28 @@ class Migration(Forward):
                                              "misfit_kernel")
                 )
 
+
+                self.solver.smooth(
+                    input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
+                    output_path=os.path.join(self.path.eval_grad,
+                                             "Hessian"),
+                                             span_h = self.kargs['smooth_h'] * 4,
+                                             span_v = self.kargs['smooth_h'] * 4,
+                                             parameters=["Hessian1"])
+
+
+                for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
+                    for parameters in self.solver._parameters:
+                        ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
+                        unix.cp(src=ifile,dst=ifile2)
+                        #logger.info(ifile,ifile2)
+                    unix.rm(ifile)
+                                                   
+
+                
+
+                
+
         # Make sure were in a clean scratch eval_grad directory
         tags = ["misfit_kernel", "mk_nosmooth"]
         for tag in tags:
@@ -328,17 +350,17 @@ class Migration(Forward):
             import numpy as np
 
 
-            for iproc in range(len(model.model['Qmu'])):
-                idx = np.where(model.model['Qmu'][iproc] <= 1/9998.0)
-                # logger.info(f"{idx}")
-                if not self.kargs['q_only']:
+            if not self.kargs['q_only']:
+                for iproc in range(len(model.model['vs'])):
+                    idx = np.where(model.model['vs'][iproc] == 0.0)
                     gradient.model['vp_kernel'][iproc][idx] = 0.0
-                gradient.model['Qmu_kernel'][iproc][idx] = 0.0
+                    gradient.model['Qmu_kernel'][iproc][idx] = 0.0
 
             gradient.model['Qmu_kernel'][:][:] *= 1.0 / model.model['Qmu'][:][:]
                 
         #import sys
         #sys.exit()
+        #max_val = np.np.abs(gradient.vector * model_vector)
         gradient.update(vector=gradient.vector * model.vector)
         gradient.write(path=os.path.join(self.path.eval_grad, "gradient"))
 

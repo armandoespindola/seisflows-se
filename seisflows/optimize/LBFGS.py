@@ -158,7 +158,7 @@ class LBFGS(Gradient):
 
         if self._LBFGS_iter == 1:
             logger.info("first L-BFGS iteration, default to 'Gradient' descent")
-            p_new.update(vector=-1 * g.vector)
+            p_new.update(vector=-1 * self._precondition(g.vector))
             restarted = False
         # Restart condition or first iteration lead to setting search direction
         # as the inverse gradient (i.e., default to steepest descent)
@@ -166,7 +166,7 @@ class LBFGS(Gradient):
             logger.info("restarting L-BFGS due to periodic restart condition. "
                         "setting search direction as inverse gradient")
             self.restart()
-            p_new.update(vector=-1 * g.vector)
+            p_new.update(vector=-1 * self._precondition(g.vector))
             restarted = True
         # Normal LBFGS direction computation
         else:

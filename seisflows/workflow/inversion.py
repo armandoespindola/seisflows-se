@@ -410,6 +410,11 @@ class Inversion(Migration):
 
         # 'p' is the search direction used to perturb the initial model
         p_new = self.optimize.compute_direction()
+
+        if self.source_encoding and self.kargs['se_random_restart']:
+            if (self.iteration  % (self.kargs['se_random_niter'] + 1)) == 0 and self.iteration > 1:
+                self.optimize.restart()
+                
         if sum(p_new.vector) == 0:
             logger.critical(msg.cli(
                 "Search direction vector 'p' is 0, meaning no model update can "

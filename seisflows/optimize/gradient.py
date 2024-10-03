@@ -144,15 +144,15 @@ class Gradient:
         """
         Checks parameters, paths, and dependencies
         """
-        if self.preconditioner:
-            # This list should match the logic in self.precondition()
-            assert self.preconditioner in self._acceptable_preconditioners, \
-                f"PRECOND must be in {self._acceptable_preconditioners}"
+        # if self.preconditioner:
+        #     # This list should match the logic in self.precondition()
+        #     assert self.preconditioner in self._acceptable_preconditioners, \
+        #         f"PRECOND must be in {self._acceptable_preconditioners}"
 
-            assert(os.path.exists(self.path.preconditioner)), (
-                f"preconditioner requires PATH.PRECOND pointing to a array-like" 
-                f"weight file"
-            )
+        #     assert(os.path.exists(self.path.preconditioner)), (
+        #         f"preconditioner requires PATH.PRECOND pointing to a array-like" 
+        #         f"weight file"
+        #     )
 
         assert 0. < self.step_len_init, f"optimize.step_len_init must be >= 0."
         assert 0. < self.step_len_max, f"optimize.step_len_max must be >= 0."
@@ -297,7 +297,7 @@ class Gradient:
 
                 diag /= np.max(diag)
 
-                diag = 1.0 / (diag + np.max(diag) * 0.1)
+                diag = 1.0 / (diag + 0.1)
                 return diag * q
             else:
                 raise NotImplementedError(
