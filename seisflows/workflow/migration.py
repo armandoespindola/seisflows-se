@@ -259,22 +259,22 @@ class Migration(Forward):
                                              "misfit_kernel")
                 )
 
+                if self.kargs['preconditioner'] is not None:
+                    self.solver.smooth(
+                        input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
+                        output_path=os.path.join(self.path.eval_grad,
+                                                 "Hessian"),
+                        span_h = self.kargs['smooth_h'] * 4,
+                        span_v = self.kargs['smooth_h'] * 4,
+                        parameters=["Hessian1"])
 
-                self.solver.smooth(
-                    input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
-                    output_path=os.path.join(self.path.eval_grad,
-                                             "Hessian"),
-                                             span_h = self.kargs['smooth_h'] * 4,
-                                             span_v = self.kargs['smooth_h'] * 4,
-                                             parameters=["Hessian1"])
 
-
-                for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
-                    for parameters in self.solver._parameters:
-                        ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
-                        unix.cp(src=ifile,dst=ifile2)
+                    for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
+                        for parameters in self.solver._parameters:
+                            ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
+                            unix.cp(src=ifile,dst=ifile2)
                         #logger.info(ifile,ifile2)
-                    unix.rm(ifile)
+                        unix.rm(ifile)
                                                    
 
                 

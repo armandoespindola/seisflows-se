@@ -272,7 +272,7 @@ class Default:
         if data_format.upper() == "SU":
             st = obspy_read(fid, format="SU", byteorder="<")#,unpack_trace_headers=True)
             #ARMANDO : SU check in mu seconds (1e-3) units
-            #for ist in st:
+            # for ist in st:
             #   ist.stats.delta *= 1000.0
             #logger.info(f"{st[0].stats.delta}")
         elif data_format.upper() == "SAC":
@@ -607,7 +607,7 @@ class Default:
                 se_dt = self.par['se_dt'] * self.par['se_dwn']
                 nt_ss = se_ntss
                 qf0  = self.par['qf0']
-                #logger.info(f"EEEEEEEEEEEE{se_td}")
+                logger.info(f"EEEEEEEEEEEE{se_td}")
 
 
 
@@ -745,7 +745,9 @@ class Default:
                         adjsrc_q.append(adjsrc_st_q)
                     adjsrc.append(adjsrc_st)
 
+                logger.info(f"ADADADAD {adjsrc[0]}")
                 adjsrc.resample(sampling_rate = 1.0 / self.par['se_dt'] )
+                logger.info(f"ADADADAD {adjsrc[0]}")
                 adjsrc.taper(0.05,side='right')
                 fid = os.path.basename(syn_fid)
                 fid = self._rename_as_adjoint_source(fid) + "_e"
@@ -771,11 +773,12 @@ class Default:
                         unix.cp(src=save_residuals, dst=export_residuals)
                                
             
-            continue
+            if self.par['source_encoding']:
+                continue
         
         
             # Write the residuals/misfit and adjoint sources for each component
-            #logger.info("gsgsgsgsggsg")
+            logger.info("gsgsgsgsggsg")
             for tr_obs, tr_syn in zip(obs, syn):
                 
                 obs_data = tr_obs.data

@@ -234,9 +234,9 @@ def se_amplitude(syn,obs,Wp):
     return misfit,residual
 
 
-def se_amp_phase(syn,obs):
-    amp_misfit,amp_residual = se_amplitude(syn,obs)
-    phase_misfit,phase_residual = se_phase(syn,obs)
+def se_amp_phase(syn,obs,Wp):
+    amp_misfit,amp_residual = se_amplitude(syn,obs,Wp)
+    phase_misfit,phase_residual = se_phase(syn,obs,Wp)
     misfit = amp_misfit + phase_misfit
     residual = [phase_residual , amp_residual] 
     return misfit,residual

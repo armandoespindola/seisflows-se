@@ -82,7 +82,7 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     # plt.plot(wadj,'b-')
     # plt.show()
 
-    return wadj
+    return wadj * 1e+15
 
 
 
@@ -122,13 +122,13 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
 
     # Arm: I added a threshold for smaller amplitudes
     amp_syn = np.abs(syn)
-    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+    # amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
     phase = np.angle(syn)
 
     residual = residual * syn * 1j
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
-    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
 
     residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
@@ -179,6 +179,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     ratio = np.divide(amp_syn, amp_obs, out=np.ones_like(amp_syn), where=amp_obs!=0)
     
     residual = np.log(ratio) #* Wp
+    #residual = amp_syn - amp_obs
 
     if dd_diff:
         if isinstance(dd_r,list):
@@ -222,7 +223,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     # plt.plot(wadj,'b')
     # plt.show()
 
-    return wadj
+    return wadj #* 1e15
 
 
 
