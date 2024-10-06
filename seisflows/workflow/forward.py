@@ -647,110 +647,110 @@ class Forward:
         )
 
 
-    def prepare_obs_data_se(self,*kargs,**kwargs):
-        from scipy.fft import fft,fftfreq
-        import numpy as np
-        import obspy
-        freq = np.load(self.path_specfem_data + "/es_freq.npy")
-        rdi = np.load(self.path_specfem_data + "/es_rdi.npy")
-        freq_idx_glob = np.load(self.path_specfem_data + "/es_freq_idx_glob.npy")
+    # def prepare_obs_data_se(self,*kargs,**kwargs):
+    #     from scipy.fft import fft,fftfreq
+    #     import numpy as np
+    #     import obspy
+    #     freq = np.load(self.path_specfem_data + "/es_freq.npy")
+    #     rdi = np.load(self.path_specfem_data + "/es_rdi.npy")
+    #     freq_idx_glob = np.load(self.path_specfem_data + "/es_freq_idx_glob.npy")
         
-        se_ntss = int((self.se_t - self.se_td) / self.dwn)
+    #     se_ntss = int((self.se_t - self.se_td) / self.dwn)
 
-        logger.info(se_ntss)
+    #     logger.info(se_ntss)
         
-        logger.info("Preparing obs data for source encoding")
-        fftobs_full = np.zeros((len(freq),132),dtype=complex)
-        for ifreq in range(0,len(freq)):
-            source_name = "{:03}".format(rdi[ifreq] + 1)
-            path = os.path.join(self.path['scratch'],"solver",source_name,"traces","obs")
-            obs_data = obspy.read(path + "/Uz*.su",format="SU", byteorder="<")
-            for ir,tr_obs in enumerate(obs_data):
-                data_obs = tr_obs.data
-                dt = tr_obs.stats.delta #* 1.0e+3
-                ntss = se_ntss
+    #     logger.info("Preparing obs data for source encoding")
+    #     fftobs_full = np.zeros((len(freq),132),dtype=complex)
+    #     for ifreq in range(0,len(freq)):
+    #         source_name = "{:03}".format(rdi[ifreq] + 1)
+    #         path = os.path.join(self.path['scratch'],"solver",source_name,"traces","obs")
+    #         obs_data = obspy.read(path + "/Uz*.su",format="SU", byteorder="<")
+    #         for ir,tr_obs in enumerate(obs_data):
+    #             data_obs = tr_obs.data
+    #             dt = tr_obs.stats.delta #* 1.0e+3
+    #             ntss = se_ntss
 
-                if len(data_obs) < ntss:
-                    ntaper = int(len(data_obs) * 0.025)
-                    taper = np.hanning(ntaper * 2)
-                    data_obs[:ntaper] *= taper[:ntaper]
-                    data_obs[-ntaper:] *= taper[-ntaper:]
-                    data_obs = np.pad(data_obs,(0,ntss - len(data_obs)),constant_values=(0, 0))
-                    ksample = 1
-                else:
-                    ksample = np.int(np.ceil(len(data_obs) / ntss))
-                    ntaper = int(len(data_obs) * 0.025)
-                    taper = np.hanning(ntaper * 2)
-                    data_obs[:ntaper] *= taper[:ntaper]
-                    data_obs[-ntaper:] *= taper[-ntaper:]
-                    data_obs = np.pad(data_obs,(0,ksample * ntss - len(data_obs)),constant_values=(0, 0))
+    #             if len(data_obs) < ntss:
+    #                 ntaper = int(len(data_obs) * 0.025)
+    #                 taper = np.hanning(ntaper * 2)
+    #                 data_obs[:ntaper] *= taper[:ntaper]
+    #                 data_obs[-ntaper:] *= taper[-ntaper:]
+    #                 data_obs = np.pad(data_obs,(0,ntss - len(data_obs)),constant_values=(0, 0))
+    #                 ksample = 1
+    #             else:
+    #                 ksample = np.int(np.ceil(len(data_obs) / ntss))
+    #                 ntaper = int(len(data_obs) * 0.025)
+    #                 taper = np.hanning(ntaper * 2)
+    #                 data_obs[:ntaper] *= taper[:ntaper]
+    #                 data_obs[-ntaper:] *= taper[-ntaper:]
+    #                 data_obs = np.pad(data_obs,(0,ksample * ntss - len(data_obs)),constant_values=(0, 0))
 
-                # if ksample > 1:
-                #     ntaper = int(len(data_obs) * 0.025)
-                #     taper = np.hanning(ntaper * 2)
-                #     data_obs[:ntaper] *= taper[:ntaper]
-                #     data_obs[-ntaper:] *= taper[-ntaper:]
-                #     if len(data_obs) < ntse:
-                #         data_obs = np.pad(data_obs,(0,ksample * ntse - len(data_obs)),constant_values=(0, 0))
+    #             # if ksample > 1:
+    #             #     ntaper = int(len(data_obs) * 0.025)
+    #             #     taper = np.hanning(ntaper * 2)
+    #             #     data_obs[:ntaper] *= taper[:ntaper]
+    #             #     data_obs[-ntaper:] *= taper[-ntaper:]
+    #             #     if len(data_obs) < ntse:
+    #             #         data_obs = np.pad(data_obs,(0,ksample * ntse - len(data_obs)),constant_values=(0, 0))
 
-                fft_obs  = fft(data_obs)[::ksample]
+    #             fft_obs  = fft(data_obs)[::ksample]
                 
-                fftobs_full[ifreq,ir] = fft_obs[freq_idx_glob[ifreq]]
+    #             fftobs_full[ifreq,ir] = fft_obs[freq_idx_glob[ifreq]]
 
-        path = os.path.join(self.path['scratch'],"solver","001","traces")
-        np.save(os.path.join(path, "ft_obs"),fftobs_full)
+    #     path = os.path.join(self.path['scratch'],"solver","001","traces")
+    #     np.save(os.path.join(path, "ft_obs"),fftobs_full)
 
 
 
-    def prepare_syn_data_se(self,*kargs,**kwargs):
-        from scipy.fft import fft,fftfreq
-        import numpy as np
-        import obspy
-        freq = np.load(self.path_specfem_data + "/es_freq.npy")
-        rdi = np.load(self.path_specfem_data + "/es_rdi.npy")
-        freq_idx_glob = np.load(self.path_specfem_data + "/es_freq_idx_glob.npy")
+    # def prepare_syn_data_se(self,*kargs,**kwargs):
+    #     from scipy.fft import fft,fftfreq
+    #     import numpy as np
+    #     import obspy
+    #     freq = np.load(self.path_specfem_data + "/es_freq.npy")
+    #     rdi = np.load(self.path_specfem_data + "/es_rdi.npy")
+    #     freq_idx_glob = np.load(self.path_specfem_data + "/es_freq_idx_glob.npy")
 
-        #self.se_ntse
+    #     #self.se_ntse
         
-        se_ntss = int((self.se_t - self.se_td) / self.se_dwn)
+    #     se_ntss = int((self.se_t - self.se_td) / self.se_dwn)
 
-        se_td = int(self.se_td / self.se_dwn)
+    #     se_td = int(self.se_td / self.se_dwn)
 
-        fft_stf = np.load(self.path_specfem_data + "/fft_stf.npy")
+    #     fft_stf = np.load(self.path_specfem_data + "/fft_stf.npy")
         
-        logger.info("Preparing syn data for source encoding")
-        fftsyn_full = np.zeros((len(freq),132),dtype=complex)
+    #     logger.info("Preparing syn data for source encoding")
+    #     fftsyn_full = np.zeros((len(freq),132),dtype=complex)
         
-        path = os.path.join(self.path['scratch'],"solver","001","traces","syn")
-        syn_data = obspy.read(path + "/Uz*.su", format="SU", byteorder="<")
-        #syn_data.resample(sampling_rate= 2.0 / syn_data[0].stats.delta)
-        for ir,tr_syn in enumerate(syn_data):
-            dt = tr_syn.stats.delta #* 1.0e+3
-            ntss = se_ntss
-            #logger.info(f"{ntse}")
-            #logger.info(f"{dt}")
-            data_syn = tr_syn.data[-ntss:]
-            fft_syn  = fft(data_syn)
-            freq_syn = fftfreq(ntss,dt)
-            # Compensating by TD transient duration
-            fft_syn *= np.exp(-1j * freq_syn * 2 * np.pi * (se_td - 1) * dt)
+    #     path = os.path.join(self.path['scratch'],"solver","001","traces","syn")
+    #     syn_data = obspy.read(path + "/Uz*.su", format="SU", byteorder="<")
+    #     #syn_data.resample(sampling_rate= 2.0 / syn_data[0].stats.delta)
+    #     for ir,tr_syn in enumerate(syn_data):
+    #         dt = tr_syn.stats.delta #* 1.0e+3
+    #         ntss = se_ntss
+    #         #logger.info(f"{ntse}")
+    #         #logger.info(f"{dt}")
+    #         data_syn = tr_syn.data[-ntss:]
+    #         fft_syn  = fft(data_syn)
+    #         freq_syn = fftfreq(ntss,dt)
+    #         # Compensating by TD transient duration
+    #         fft_syn *= np.exp(-1j * freq_syn * 2 * np.pi * (se_td - 1) * dt)
 
-            # Compensate sin to cosine Ricker wavelet
-            fft_syn *=  1j
+    #         # Compensate sin to cosine Ricker wavelet
+    #         fft_syn *=  1j
 
-            # Compensate for dt and integraton 2 / dtao
-            fft_syn *= dt *  2.0 / (ntss * dt)
+    #         # Compensate for dt and integraton 2 / dtao
+    #         fft_syn *= dt *  2.0 / (ntss * dt)
 
-            # # Compensate for source
-            #logger.info(f"{stf.shape}")                
-            #fft_stf = fft(stf[:ntse,1])
+    #         # # Compensate for source
+    #         #logger.info(f"{stf.shape}")                
+    #         #fft_stf = fft(stf[:ntse,1])
 
-            #fft_syn *= fft_stf * 1.0e-10
+    #         #fft_syn *= fft_stf * 1.0e-10
 
-            fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * 1.0e-10
+    #         fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * 1.0e-10
 
-        path = os.path.join(self.path['scratch'],"solver","001","traces")
-        np.save(os.path.join(path, "ft_syn"),fftsyn_full)
+    #     path = os.path.join(self.path['scratch'],"solver","001","traces")
+    #     np.save(os.path.join(path, "ft_syn"),fftsyn_full)
 
        
 

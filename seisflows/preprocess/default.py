@@ -623,7 +623,7 @@ class Default:
                 #     Wp[:,istat] *= phase_w
                     
                     
-                for ifreq in range(len(freq)):
+                #for ifreq in range(len(freq)):
                     # obs_p = fft_obs[ifreq,:]
                     # syn_p = fft_syn[ifreq,:]
                     # ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
@@ -634,8 +634,8 @@ class Default:
                     # Wp[ifreq,:] *= phase_w
                     #logger.info(f"Wp: {Wp[ifreq,:]}")
                     # Andreas avoid uq in teh phase
-                    Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
-                    Wp[ifreq,:] /= np.max(Wp[ifreq,:])
+                    #Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
+                    #Wp[ifreq,:] /= np.max(Wp[ifreq,:])
 
                 # Wp = np.log(1 + np.abs(fft_obs))
                 # Wp /= np.max(Wp)
@@ -651,19 +651,19 @@ class Default:
                     #obs_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
                     #syn_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
 
-                    # import matplotlib
-                    # import matplotlib.pyplot as plt
+                    import matplotlib
+                    import matplotlib.pyplot as plt
                     # matplotlib.use('Agg')
 
-                    # if istat < len(freq):
-                    #     plt.figure()
-                    #     plt.plot(np.angle(fft_obs[istat,:]),'ko-')
-                    #     plt.plot(np.angle(fft_syn[istat,:]),'r*-')
+                    if istat < len(freq):
+                       plt.figure()
+                       plt.plot(np.angle(fft_obs[:,istat]),'ko-')
+                       plt.plot(np.angle(fft_syn[:,istat]),'r*-')
                     #     plt.savefig(f"phase_test_{istat}.png")
-                    # if istat < len(freq):
-                    #     plt.figure()
-                    #     plt.plot(np.real(fft_obs[istat,:]),'ko-')
-                    #     plt.plot(np.real(fft_syn[istat,:]),'b*-')
+                    if istat < len(freq):
+                        plt.figure()
+                        plt.plot(np.real(fft_obs[:]),'ko-')
+                        #plt.plot(np.real(fft_syn[:,istat]),'b*-')
                     #     plt.savefig(f"real_test_{istat}.png")
                     # plt.plot(np.unwrap(np.angle(fft_obs[90,:]) * Wp[90,:]),'ko-')
                     # plt.plot(np.unwrap(np.angle(fft_syn[90,:]) * Wp[90,:]),'b*-')
@@ -672,7 +672,7 @@ class Default:
                     # plt.plot(np.real(obs_data - syn_data),'ko-')
                     # plt.plot(np.imag(obs_data - syn_data),'b*-')
 
-             #       plt.show()
+                    plt.show()
                     # Simple check to make sure zip retains ordering
                     #tr_obs.plot()
                     #tr_syn.plot()
@@ -953,7 +953,7 @@ class Default:
         freq_idx_glob = np.load(path_specfem_data + "/es_freq_idx_glob.npy")
         fft_stf = np.load(path_specfem_data + "/fft_stf.npy")
         se_ntss = int((par['se_t'] - par['se_td']) / par['se_dwn'])
-        logger.info("Preparing obs data for source encoding")
+        logger.info(f"Preparing obs data for source encoding  gamma {par['se_gamma']}")
         if (par['se_t0']):
             logger.info("Using gamma * t0 damping")
         #logger.info(f"{fid}")
@@ -1021,9 +1021,9 @@ class Default:
                         t0 = 0.0
                         data_obs = data_obs * 0.0
                     
-                #logger.info(f"Muting {t0}")
+                logger.info(f"Muting {t0}")
                 data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
-                # data_obs *= np.exp(-1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
+                #data_obs *= np.exp(1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
 
                 t0_array.append(t0)
                 # tr_obs.data = data_obs
@@ -1035,14 +1035,15 @@ class Default:
                 # plt.show()
 
                 
-                fft_obs  = fft(data_obs)[::ksample] #* np.exp(t0 * par['se_gamma'])
+                fft_obs  = np.fft.fft(data_obs)[::ksample] #* np.exp(t0 * par['se_gamma'])
                 freq_obs = np.fft.fftfreq(len(fft_obs),dt)
                 #factor = np.exp(1j * freq_obs * 2.0 * np.pi * td)
-                factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
+                #factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
                 # factor *= np.exp(-1j * freq_obs * 2.0 * np.pi * 1.20 / freq[ifreq])
-                fft_obs *= factor  * -1.0j
+                #fft_obs *= factor  * -1.0j
 #                fft_obs[freq_idx_glob] /= fft_stf
-                fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])
+                #fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])
+                fftobs_full.append(fft_obs[freq_idx_glob[ifreq]])
             #obs_data_raw.plot(type='section',fig=fig,color='red')
             #obs_data.plot(type='section',fig=fig)
             #plt.ylim((0,10))
@@ -1222,17 +1223,17 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
         # gamma
         t0 = t0_array[:,ir]
         #for it0 in t0:
-        data_syn *= np.exp(-1 * par['se_gamma'] * (np.arange(len(data_syn)) * dt 
+        data_syn *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_syn)) * dt 
                                                    + dt * par['se_td'] / par['se_dwn']))
         
         
         fft_syn  = fft(data_syn)
         freq_syn = fftfreq(ntss,dt)
         # Compensating by TD transient duration
-        #fft_syn *= np.exp(-1j * freq_syn * 2 * np.pi * dt * par['se_td'] / par['se_dwn'])
+        fft_syn *= np.exp(-1.0j * freq_syn * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
 
         # Compensate sin to cosine Ricker wavelet
-        #fft_syn *=  1j
+        fft_syn *=  1.0j
 
         # Compensate for dt and integraton 2 / dtao
         fft_syn *= 2.0 / ntss 
@@ -1243,8 +1244,8 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
 
             #fft_syn *= fft_stf * 1.0e-10
 
-        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
-#        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+        #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
+        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
         
         #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
         
