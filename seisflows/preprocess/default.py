@@ -272,8 +272,9 @@ class Default:
         if data_format.upper() == "SU":
             st = obspy_read(fid, format="SU", byteorder="<")#,unpack_trace_headers=True)
             #ARMANDO : SU check in mu seconds (1e-3) units
-            # for ist in st:
-            #   ist.stats.delta *= 1000.0
+            for ist in st:
+                if ist.stats.delta < 1e-3:
+                    ist.stats.delta *= 1000.0
             #logger.info(f"{st[0].stats.delta}")
         elif data_format.upper() == "SAC":
             st = obspy_read(fid, format="SAC")
