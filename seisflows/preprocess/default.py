@@ -272,8 +272,10 @@ class Default:
         if data_format.upper() == "SU":
             st = obspy_read(fid, format="SU", byteorder="<")#,unpack_trace_headers=True)
             #ARMANDO : SU check in mu seconds (1e-3) units
-            # for ist in st:
-            #   ist.stats.delta *= 1000.0
+            for ist in st:
+                if ist.stats.delta < 9e-4:
+                    logger.info("Warning Delta")
+                    ist.stats.delta *= 1000.0
             #logger.info(f"{st[0].stats.delta}")
         elif data_format.upper() == "SAC":
             st = obspy_read(fid, format="SAC")
@@ -607,7 +609,7 @@ class Default:
                 se_dt = self.par['se_dt'] * self.par['se_dwn']
                 nt_ss = se_ntss
                 qf0  = self.par['qf0']
-                logger.info(f"EEEEEEEEEEEE{se_td}")
+                #logger.info(f"EEEEEEEEEEEE{se_td}")
 
 
 
@@ -651,19 +653,19 @@ class Default:
                     #obs_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
                     #syn_data[abs(obs_data) < obs_data_max * 1e-2] = 0.0
 
-                    import matplotlib
-                    import matplotlib.pyplot as plt
+                    #import matplotlib
+                    #import matplotlib.pyplot as plt
                     # matplotlib.use('Agg')
 
-                    if istat < len(freq):
-                       plt.figure()
-                       plt.plot(np.angle(fft_obs[:,istat]),'ko-')
-                       plt.plot(np.angle(fft_syn[:,istat]),'r*-')
-                    #     plt.savefig(f"phase_test_{istat}.png")
-                    if istat < len(freq):
-                        plt.figure()
-                        plt.plot(np.real(fft_obs[:]),'ko-')
-                        #plt.plot(np.real(fft_syn[:,istat]),'b*-')
+                    # if istat < len(freq):
+                    #    plt.figure()
+                    #    plt.plot(np.angle(fft_obs[:,istat]),'ko-')
+                    #    plt.plot(np.angle(fft_syn[:,istat]),'r*-')
+                    # #     plt.savefig(f"phase_test_{istat}.png")
+                    # if istat < len(freq):
+                    #     plt.figure()
+                    #     plt.plot(np.real(fft_obs[:]),'ko-')
+                    #     plt.plot(np.real(fft_syn[:,istat]),'b*-')
                     #     plt.savefig(f"real_test_{istat}.png")
                     # plt.plot(np.unwrap(np.angle(fft_obs[90,:]) * Wp[90,:]),'ko-')
                     # plt.plot(np.unwrap(np.angle(fft_syn[90,:]) * Wp[90,:]),'b*-')
@@ -672,7 +674,7 @@ class Default:
                     # plt.plot(np.real(obs_data - syn_data),'ko-')
                     # plt.plot(np.imag(obs_data - syn_data),'b*-')
 
-                    plt.show()
+                    #plt.show()
                     # Simple check to make sure zip retains ordering
                     #tr_obs.plot()
                     #tr_syn.plot()
@@ -745,9 +747,9 @@ class Default:
                         adjsrc_q.append(adjsrc_st_q)
                     adjsrc.append(adjsrc_st)
 
-                logger.info(f"ADADADAD {adjsrc[0]}")
+                #logger.info(f"ADADADAD {adjsrc[0]}")
                 adjsrc.resample(sampling_rate = 1.0 / self.par['se_dt'] )
-                logger.info(f"ADADADAD {adjsrc[0]}")
+                #logger.info(f"ADADADAD {adjsrc[0]}")
                 adjsrc.taper(0.05,side='right')
                 fid = os.path.basename(syn_fid)
                 fid = self._rename_as_adjoint_source(fid) + "_e"
@@ -778,7 +780,7 @@ class Default:
         
         
             # Write the residuals/misfit and adjoint sources for each component
-            logger.info("gsgsgsgsggsg")
+            #logger.info("gsgsgsgsggsg")
             for tr_obs, tr_syn in zip(obs, syn):
                 
                 obs_data = tr_obs.data
@@ -1021,7 +1023,7 @@ class Default:
                         t0 = 0.0
                         data_obs = data_obs * 0.0
                     
-                logger.info(f"Muting {t0}")
+                #logger.info(f"Muting {t0}")
                 data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
                 #data_obs *= np.exp(1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
 
@@ -1269,7 +1271,7 @@ def unwrap_d(data,t0):
     idxgreat0 = (t0>0)
     t0fil = t0[idxgreat0]
     idxmin = np.argmin(abs(t0fil))
-    print("t0_idx: ",idxmin)
+    # print("t0_idx: ",idxmin)
     #logger.info(f"idx: {idxmin}")
     data_sel = data[idxgreat0]
     phase_ww = np.ones(len(data_sel))

@@ -62,9 +62,9 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
     
-    #residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
+    residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
 
-    residual *= 1.0 * np.exp(gamma * t0_array) #* t0_array
+    #residual *= 1.0 * np.exp(gamma * t0_array) #* t0_array
 
 
 
@@ -82,7 +82,7 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     # plt.plot(wadj,'b-')
     # plt.show()
 
-    return wadj * 1e+15
+    return wadj #* 1e+15
 
 
 
@@ -125,11 +125,12 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     # amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
     phase = np.angle(syn)
 
-    residual = residual * syn * 1j
+    residual = residual * syn * np.conj(fft_stf)
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
     residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
 
+    residual *= np.exp(1j * omega * se_td * se_dt)
     residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
@@ -192,7 +193,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     omega = 2.0 * np.pi * freq
 
 
-    residual = residual * syn
+    residual = residual * syn * -1j * np.conj(fft_stf)
 
     # Arm: I added a threshold for smaller amplitudes
     amp_syn = np.abs(syn)
@@ -201,6 +202,7 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
     residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
 
+    residual *= np.exp(1j * omega * se_td * se_dt)
     residual *= np.exp(gamma * t0_array) #* t0_array
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
