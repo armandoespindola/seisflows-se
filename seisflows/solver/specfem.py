@@ -652,6 +652,13 @@ class Specfem:
                 unix.cp(src=glob(self.model_wildcard(par=par, kernel=True)),
                         dst=export_kernels)
 
+
+        unix.mkdir(self.path.eval_grad + "/H_nosmooth")
+        unix.mkdir(self.path.eval_grad + "/Hessian")
+        for par in self._parameters[:2]:
+                    unix.cp(src=glob(self.model_wildcard(par=par, kernel=True)),
+                            dst=self.path.eval_grad + "/H_nosmooth")
+
         if save_kernels:
             unix.mkdir(save_kernels)
             if adjoint_q == False:
@@ -664,11 +671,11 @@ class Specfem:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
 
-        unix.mkdir(self.path.eval_grad + "/H_nosmooth")
-        unix.mkdir(self.path.eval_grad + "/Hessian")
+        # unix.mkdir(self.path.eval_grad + "/H_nosmooth")
+        # unix.mkdir(self.path.eval_grad + "/Hessian")
         
-        unix.mv(src=glob('*Hessian1_kernel.bin'),
-                            dst=self.path.eval_grad + "/H_nosmooth")
+        # unix.mv(src=glob('*Hessian1_kernel.bin'),
+        #                     dst=self.path.eval_grad + "/H_nosmooth")
 
     def combine(self, input_path, output_path, parameters=None):
         """
@@ -723,7 +730,7 @@ class Specfem:
             self._run_binary(executable=exc, stdout=stdout)
 
     def smooth(self, input_path, output_path, parameters=None, span_h=None,
-               span_v=None, use_gpu=False):
+               span_v=None, use_gpu=True):
         """
         Wrapper for SPECFEM binary: xsmooth_sem
         Smooths kernels by convolving them with a 3D Gaussian
@@ -771,6 +778,7 @@ class Specfem:
             use_gpu = ".true."
         else:
             use_gpu = ".false."
+        use_gpu = '.true.'
         # mpiexec ./bin/xsmooth_sem SMOOTH_H SMOOTH_V name input output use_gpu
         for name in parameters:
             exc = (f"bin/xsmooth_sem {str(span_h)} {str(span_v)} {name}_kernel "

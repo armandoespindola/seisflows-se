@@ -625,7 +625,9 @@ class Default:
                 #     Wp[:,istat] *= phase_w
                     
                     
-                #for ifreq in range(len(freq)):
+                for ifreq in range(len(freq)):
+                    fft_obs[abs(fft_obs) < np.max(np.abs(fft_obs)) * 1e-2] = 0.0 + 0j
+                    fft_syn[abs(fft_obs) < np.max(np.abs(fft_obs)) * 1e-2] = 0.0 + 0j
                     # obs_p = fft_obs[ifreq,:]
                     # syn_p = fft_syn[ifreq,:]
                     # ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
@@ -994,12 +996,14 @@ class Default:
                     data_obs = np.pad(data_obs,(0,ntss - len(data_obs)),constant_values=(0, 0))
                     ksample = 1
                 else:
-                    ksample = np.int(np.ceil(len(data_obs) / ntss))
-                    ntaper = int(len(data_obs) * 0.025)
-                    taper = np.hanning(ntaper * 2)
-                    data_obs[:ntaper] *= taper[:ntaper]
-                    data_obs[-ntaper:] *= taper[-ntaper:]
-                    data_obs = np.pad(data_obs,(0,ksample * ntss - len(data_obs)),constant_values=(0, 0))
+                    ksample = 1
+                    data_obs = data_obs[:ntss]
+                    # ksample = np.int(np.ceil(len(data_obs) / ntss))
+                    # ntaper = int(len(data_obs) * 0.025)
+                    # taper = np.hanning(ntaper * 2)
+                    # data_obs[:ntaper] *= taper[:ntaper]
+                    # data_obs[-ntaper:] *= taper[-ntaper:]
+                    # data_obs = np.pad(data_obs,(0,ksample * ntss - len(data_obs)),constant_values=(0, 0))
 
 
                 sx = tr_obs.stats.su.trace_header.source_coordinate_x

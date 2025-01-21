@@ -260,23 +260,34 @@ class Migration(Forward):
                 )
 
                 if self.kargs['preconditioner'] is not None:
-                    self.solver.smooth(
-                        input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
-                        output_path=os.path.join(self.path.eval_grad,
+                    if self.kargs['preconditioner'] == 'DIAGONAL':
+                        self.solver.smooth(
+                            input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
+                            output_path=os.path.join(self.path.eval_grad,
                                                  "Hessian"),
-                        span_h = self.kargs['smooth_h'] * 4,
-                        span_v = self.kargs['smooth_h'] * 4,
-                        parameters=["Hessian1"])
-
-
-                    for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
+                            span_h = self.kargs['smooth_h'] * 4,
+                            span_v = self.kargs['smooth_h'] * 4, parameters= ['Hessian1'])
+                    else:
+                        gradient = Model(path=os.path.join(self.path.eval_grad,"H_nosmooth"), regions=self.solver._regions)
                         for parameters in self.solver._parameters:
-                            ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
-                            unix.cp(src=ifile,dst=ifile2)
-                        #logger.info(ifile,ifile2)
-                        unix.rm(ifile)
-                                                   
-
+                            kernels = parameters + "_kernel"
+                            gradient.model[kernels][:][:] = abs(gradient.model[kernels][:][:])
+                        gradient.write(path=os.path.join(self.path.eval_grad,"H_nosmooth"))
+                        
+                        self.solver.smooth(
+                            input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
+                            output_path=os.path.join(self.path.eval_grad,
+                                                     "Hessian"),
+                            span_h = self.kargs['smooth_h'] * 4,
+                            span_v = self.kargs['smooth_h'] * 4)
+                    
+                    if self.kargs['preconditioner'] == 'DIAGONAL':
+                        for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
+                            for parameters in self.solver._parameters:
+                                ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
+                                unix.cp(src=ifile,dst=ifile2)
+                                #logger.info(ifile,ifile2)
+                                unix.rm(ifile)
                 
 
                 
@@ -345,6 +356,7 @@ class Migration(Forward):
                 idx = np.where(model.model['vs'][iproc] == 0.0)
                 # logger.info(f"{idx}")
                 gradient.model['vp_kernel'][iproc][idx] = 0.0
+                gradient.model['vs_kernel'][iproc][:] = 1.0 * gradient.model['vs_kernel'][iproc][:]
 
         if self.solver.materials.upper() == "ANELASTIC" :
             import numpy as np

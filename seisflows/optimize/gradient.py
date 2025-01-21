@@ -290,7 +290,7 @@ class Gradient:
         """
         if self.preconditioner is not None:
             p = Model(path=self.path.preconditioner)
-            if self.preconditioner.upper() == "DIAGONAL":
+            if self.preconditioner.upper() == "DIAGONAL" or "APPROX":
                 logger.info("applying diagonal preconditioner")
 
                 diag  = np.abs(p.vector)
