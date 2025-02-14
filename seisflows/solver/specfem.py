@@ -964,6 +964,7 @@ class Specfem:
         dst = os.path.join(cwd, "DATA", "")
         unix.cp(src, dst)
 
+        unix.cp(dst +"/st_realdata.txt",cwd)
         # Symlink event source specifically, only retain source prefix
 
         if not self.source_encoding:

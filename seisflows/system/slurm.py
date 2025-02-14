@@ -79,7 +79,7 @@ class Slurm(Cluster):
         # Must be overwritten by child class
         self.partition = "cpu"
         self.submit_to = self.partition
-        self._partitions = {"cpu":40}
+        self._partitions = {"cpu":2}
 
         # Convert walltime and tasktime to datetime str 'H:MM:SS'
         self._tasktime = str(timedelta(minutes=self.tasktime))
