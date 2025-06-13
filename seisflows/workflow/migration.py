@@ -161,9 +161,9 @@ class Migration(Forward):
         logger.info(msg.mnr("EVALUATING EVENT KERNELS W/ ADJOINT SIMULATIONS"))
 
         if self.source_encoding:
-            self.system.run([run_adjoint_simulation],single=True)
+            self.system.run([run_adjoint_simulation],gpu=True,single=True)
         else:
-            self.system.run([run_adjoint_simulation])
+            self.system.run([run_adjoint_simulation],gpu=True)
 
 
 
@@ -198,9 +198,9 @@ class Migration(Forward):
         logger.info(msg.mnr("EVALUATING EVENT KERNELS W/ ADJOINT SIMULATIONS - Q"))
 
         if self.source_encoding:
-            self.system.run([run_adjoint_simulation],single=True)
+            self.system.run([run_adjoint_simulation],gpu=True,single=True)
         else:
-            self.system.run([run_adjoint_simulation])
+            self.system.run([run_adjoint_simulation],gpu=True)
 
 
 
@@ -222,7 +222,7 @@ class Migration(Forward):
                 p_old = 0.0 
                 kernels = parameters + "_kernel"
                 for iproc in range(len(gradient.model[kernels])):
-                    p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),99.9)
+                    p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),98.0)
                     if p_old < p_new:
                         p_old = p_new
                 for iproc in range(len(gradient.model[kernels])):
@@ -265,8 +265,8 @@ class Migration(Forward):
                             input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
                             output_path=os.path.join(self.path.eval_grad,
                                                  "Hessian"),
-                            span_h = self.kargs['smooth_h'] * 4,
-                            span_v = self.kargs['smooth_h'] * 4, parameters= ['Hessian1'])
+                            span_h = self.kargs['smooth_v'] * 4,
+                            span_v = self.kargs['smooth_v'] * 4, parameters= ['Hessian1'])
                     else:
                         gradient = Model(path=os.path.join(self.path.eval_grad,"H_nosmooth"), regions=self.solver._regions)
                         for parameters in self.solver._parameters:
@@ -278,8 +278,8 @@ class Migration(Forward):
                             input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
                             output_path=os.path.join(self.path.eval_grad,
                                                      "Hessian"),
-                            span_h = self.kargs['smooth_h'] * 4,
-                            span_v = self.kargs['smooth_h'] * 4)
+                            span_h = self.kargs['smooth_v'] * 4,
+                            span_v = self.kargs['smooth_v'] * 4)
                     
                     if self.kargs['preconditioner'] == 'DIAGONAL':
                         for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
@@ -306,7 +306,7 @@ class Migration(Forward):
         percentile_kernel()
 
         self.system.run([smooth_misfit_kernel],
-                        single=True)
+                        single=True,gpu=True)
 
         
 
@@ -355,7 +355,7 @@ class Migration(Forward):
             for iproc in range(len(model.model['vs'])):
                 idx = np.where(model.model['vs'][iproc] == 0.0)
                 # logger.info(f"{idx}")
-                gradient.model['vp_kernel'][iproc][idx] = 0.0
+                # gradient.model['vp_kernel'][iproc][idx] = 0.0
                 gradient.model['vs_kernel'][iproc][:] = 1.0 * gradient.model['vs_kernel'][iproc][:]
 
         if self.solver.materials.upper() == "ANELASTIC" :

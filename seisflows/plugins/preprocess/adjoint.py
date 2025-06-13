@@ -87,9 +87,10 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
 
 
 # Exponential phase adjoint source
-def se_phase(syn, obs, se_t, se_td, se_tse,
+def se_phase_exp(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
+                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False,
+                 tka=1.0,gamma_t0=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -106,7 +107,91 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     #ratio *= Wp
 
 #   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
-    residual = np.sin(0.5 * np.angle(ratio) * Wp)
+    residual = np.sin(np.angle(ratio))
+
+    if dd_diff:
+        if isinstance(dd_r,list):
+            residual = dd_r[0]
+        else:
+            residual =  dd_r
+        
+    #residual[np.isnan(Wp)] = 0.0 
+    
+    nt = se_t
+    fft_wadj = np.zeros(nt_se, dtype=complex)
+    omega = 2.0 * np.pi * freq
+
+    # Arm: I added a threshold for smaller amplitudes
+    amp_syn = np.abs(syn)
+    #amp_syn[amp_syn < np.max(amp_syn) * 1e-1] = 0.0
+    phase = np.angle(syn)
+
+    residual = residual * syn * np.conj(fft_stf) * Wp
+
+    # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
+    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
+
+    tw = t0_array.copy()
+    if np.any(tw < 0):
+        tw += abs(np.min(tw))
+    tw = tw**0.5
+    
+    residual *= np.exp(1j * omega * se_td * se_dt)
+    
+    if gamma_t0:
+        residual *= np.exp(gamma * t0_array)
+        
+    fft_wadj[freq_idx] = residual * tw
+    fft_wadj[-freq_idx] = np.conj(residual)
+
+    # wadj = np.zeros(nt_se)
+    # for i in range(0,len(residual)):
+    #     wadj += residual[i] * np.sin(omega[i] * np.arange(nt_se) * se_dt - phase[i])
+        
+    wadj = np.real(ifft(fft_wadj))
+    #wadj[:] = 1.0     
+    wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
+    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
+    ntaper = np.int(0.025 * nt) # 5% taper
+    wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
+
+    # plt.figure()
+    # plt.plot(np.abs(residual),'b')
+    # plt.figure()
+    # plt.plot(Wp,'r')
+    # plt.show()
+
+    
+    # plt.figure()
+    # plt.plot(wadj,'b')
+    # plt.show()
+
+    return wadj
+
+
+
+def se_phase(syn, obs, se_t, se_td, se_tse,
+                se_dt, nt_se,freq, freq_idx,
+                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False,
+            tka=1.0):
+    """
+    :type syn: np.array
+    :param syn: synthetic data array
+    :type obs: np.array
+    :param obs: observed data array
+    """
+    import matplotlib.pyplot as plt
+    from scipy.fft import fft,fftfreq,ifft
+
+    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    #plt.figure()
+    #plt.plot(np.angle(ratio),'g')
+    #plt.show()
+    #ratio *= Wp
+
+#   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
+    residual = np.angle(ratio)
 
     if dd_diff:
         if isinstance(dd_r,list):
@@ -128,10 +213,15 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     residual = residual * syn * np.conj(fft_stf)
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
-    residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
 
+    tw = t0_array.copy()
+    if np.any(tw < 0):
+        tw += abs(np.min(tw))
+    tw = tw**0.5
+    
     residual *= np.exp(1j * omega * se_td * se_dt)
-    residual *= np.exp(gamma * t0_array) #* t0_array
+    residual *= np.exp(gamma * t0_array) #* tka * tw
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
 

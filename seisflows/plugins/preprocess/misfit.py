@@ -207,22 +207,47 @@ def instantaneous_phase2(syn, obs, nt, dt, eps=0., *args, **kwargs):
 
 
 
-def se_waveform(syn,obs,Wp):
+def se_waveform(syn,obs,Wp,t0):
     residual = syn - obs
     misfit = np.sum(np.multiply(residual,np.conj(residual)))
     return np.sqrt(np.real(misfit)),residual
 
-def se_phase(syn,obs,Wp):
+def se_phase_exp(syn,obs,Wp,tka,t0_array):
     # Exponential Phase Misfit
     # ratio = syn / obs
+
     ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
     #angle_unwrap = np.unwrap(np.angle(ratio))
-    residual = np.sin(0.50 * np.angle(ratio) * Wp)
-    misfit = 2.0 * np.sqrt(np.sum(np.multiply(residual,residual)))
+
+    tw = t0_array.copy()
+    if np.any(tw < 0):
+        tw += abs(np.min(tw))
+    tw = tw
+    
+    residual = np.sqrt(0.5) * np.sin(0.50 * np.angle(ratio)) * Wp * np.sqrt(tw) #* np.sqrt(tw)
+    misfit = np.sqrt(np.sum(np.multiply(residual,residual)))
     return misfit,residual
 
 
-def se_amplitude(syn,obs,Wp):
+
+def se_phase(syn,obs,Wp,tka,t0_array):
+    # Exponential Phase Misfit
+    # ratio = syn / obs
+
+    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    #angle_unwrap = np.unwrap(np.angle(ratio))
+
+    tw = t0_array.copy()
+    if np.any(tw < 0):
+        tw += abs(np.min(tw))
+    tw = tw**0.5
+    
+    residual = np.sqrt(0.5) * np.angle(ratio) #* np.sqrt(tka) #* np.sqrt(tw)
+    misfit = np.sqrt(np.sum(np.multiply(residual,residual)))
+    return misfit,residual
+
+
+def se_amplitude(syn,obs,Wp,t0):
     # Exponential Phase Misfit
     # ratio = syn / obs
     amp_syn = np.abs(syn)
@@ -234,9 +259,9 @@ def se_amplitude(syn,obs,Wp):
     return misfit,residual
 
 
-def se_amp_phase(syn,obs,Wp):
-    amp_misfit,amp_residual = se_amplitude(syn,obs,Wp)
-    phase_misfit,phase_residual = se_phase(syn,obs,Wp)
+def se_amp_phase(syn,obs,Wp,t0):
+    amp_misfit,amp_residual = se_amplitude(syn,obs,Wp,t0)
+    phase_misfit,phase_residual = se_phase(syn,obs,Wp,t0)
     misfit = amp_misfit + phase_misfit
     residual = [phase_residual , amp_residual] 
     return misfit,residual

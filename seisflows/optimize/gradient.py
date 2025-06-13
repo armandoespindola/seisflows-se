@@ -297,7 +297,8 @@ class Gradient:
 
                 diag /= np.max(diag)
 
-                diag = 1.0 / (diag + 0.1)
+                diag[abs(diag) < 0.2] = 0.2
+                diag = 1.0 / diag
                 return diag * q
             else:
                 raise NotImplementedError(

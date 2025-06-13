@@ -174,7 +174,7 @@ class Workstation:
         workflow.setup()
         workflow.run()
 
-    def run(self, funcs, single=False, **kwargs):
+    def run(self, funcs, gpu=False,single=False, **kwargs):
         """
         Executes task multiple times in serial.
 

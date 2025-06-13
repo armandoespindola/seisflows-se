@@ -333,11 +333,29 @@ class Inversion(Migration):
                     )
                 else:
                     self.system.run(
-                        [self.prepare_freq_se,
-                         self.run_forward_simulations,
+                        [self.prepare_freq_se],
                          #self.prepare_obs_data_se,
                          #self.prepare_syn_data_se,
-                         self.evaluate_objective_function],
+                        seed = self.iteration,
+                        path_model=path_model,single= True,
+                        save_residuals=os.path.join(
+                            self.path.eval_grad,
+                            f"residuals_{{src}}_{self.iteration}_0.txt")
+                    )
+
+                    self.system.run(
+                        [self.run_forward_simulations],
+                         #self.prepare_obs_data_se,
+                         #self.prepare_syn_data_se,
+                        seed = self.iteration,
+                        path_model=path_model,single= True,gpu=True,
+                        save_residuals=os.path.join(
+                            self.path.eval_grad,
+                            f"residuals_{{src}}_{self.iteration}_0.txt")
+                    )
+
+                    self.system.run(
+                        [self.evaluate_objective_function],
                         seed = self.iteration,
                         path_model=path_model,single= True,
                         save_residuals=os.path.join(
@@ -526,9 +544,10 @@ class Inversion(Migration):
             )
         else:
             self.system.run(
-            [self.run_forward_simulations,
-             #self.prepare_syn_data_se,
-             self.evaluate_objective_function],single=True,
+                [self.run_forward_simulations],single=True,gpu=True,
+            path_model=os.path.join(self.path.eval_func, "model"))
+
+            self.system.run([self.evaluate_objective_function],single=True,
             path_model=os.path.join(self.path.eval_func, "model"),
             save_residuals=os.path.join(
                 self.path.eval_func,

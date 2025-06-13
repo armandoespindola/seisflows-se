@@ -584,13 +584,13 @@ class Default:
                 self.prepare_obs_data_se(path_scratch = self.path.solver,
                                 path_specfem_data = self.par['path_specfem_data'],
                                 par = self.par,
-                                fid = obs_fid)
+                                         fid = obs_fid,iteration=iteration)
                 
                 prepare_syn_data_se(path_scratch = self.path.solver,
                                 path_specfem_data = self.par['path_specfem_data'],
                                 syn_data = syn,
                                 par = self.par,
-                                fid = syn_fid)
+                                    fid = syn_fid,iteration=iteration)
 
                 
                 #syn_fid = synthetic[0]
@@ -598,6 +598,7 @@ class Default:
                 path = os.path.join(self.path.solver, source_name, "traces")
                 fft_obs = np.load(path + "/{}_ft_obs.npy".format(obs_fid))
                 t0_array = np.load(path + "/t0_array.npy")
+                
                 fft_syn = np.load(path + "/{}_ft_syn.npy".format(syn_fid))
                 freq = np.load(self.par['path_specfem_data'] + "/es_freq.npy")
                 rdi = np.load(self.par['path_specfem_data'] + "/es_rdi.npy")
@@ -614,7 +615,11 @@ class Default:
 
 
                 # Compute Wp weight by frequency
-                Wp = np.abs(fft_obs) * 0.0 + 1.0
+                if self.par['se_wamp0']:
+                    amp0_array = np.load(path + "/amp0_array.npy")
+                    Wp = amp0_array
+                else:
+                    Wp = np.abs(fft_obs) * 0.0 + 1.0
 
                 
                 # for istat in range(0,len(syn)):
@@ -686,7 +691,8 @@ class Default:
                         #logger.info(f"computing misfit and adjoint {syn_fid} - {obs_fid}")
                         if save_residuals and self._calculate_misfit:
                             residual,diff = self._calculate_misfit(
-                                obs=obs_data, syn=syn_data, Wp = Wp[:,istat])
+                                obs=obs_data, syn=syn_data, Wp = Wp[:,istat],tka=freq**self.par['se_alpha'],
+                            t0_array=t0_array[:,istat])
 
                             if self.par['se_double_difference']:
                                 #logger.info('Double difference')
@@ -701,7 +707,10 @@ class Default:
                                 for jstat in range(0,nlen):
                                     if istat != jstat: # and jstat > 0 and jstat < len(syn):
                                         _,diff2 = self._calculate_misfit(obs=obs_data * fft_syn[:,jstat],
-                                                                           syn=syn_data * fft_obs[:,jstat],Wp = Wp[:,istat])
+                                                                           syn=syn_data * fft_obs[:,jstat],
+                                                                         Wp = Wp[:,istat],
+                                                                         tka=freq**self.par['se_alpha'],
+                                                                         t0_array=t0_array[:,istat])
                                         if isinstance(diff2,list):
                                             diff_sum1 = np.nansum([diff_sum1,diff2[0]],axis=0)
                                             diff_sum2 = np.nansum([diff_sum2,diff2[1]],axis=0)
@@ -729,7 +738,8 @@ class Default:
                                 se_t = se_t, se_td = se_td, se_tse = se_ntss * se_dt,
                                 se_dt = se_dt, nt_se = nt_ss,freq = freq, freq_idx = freq_idx_glob,
                                 rdi = rdi, fft_stf = fft_stf,gamma = self.par['se_gamma'],t0_array=t0_array[:,istat],
-                                Wp = Wp[:,istat],dd_r=diff,dd_diff=self.par['se_double_difference'])
+                                Wp = Wp[:,istat],dd_r=diff,dd_diff=self.par['se_double_difference'],
+                                tka=freq**self.par['se_alpha'],gamma_t0 = self.par['se_gamma_t0'])
 
                             if self.materials.upper() == "ANELASTIC":
                                 adjsrc_st_q = syn[istat].copy()
@@ -947,7 +957,7 @@ class Default:
         return st_out
 
 
-    def prepare_obs_data_se(self,path_scratch,path_specfem_data,par,fid):
+    def prepare_obs_data_se(self,path_scratch,path_specfem_data,par,fid,iteration=1):
         from scipy.fft import fft,fftfreq
         import numpy as np
         import obspy
@@ -958,11 +968,19 @@ class Default:
         fft_stf = np.load(path_specfem_data + "/fft_stf.npy")
         se_ntss = int((par['se_t'] - par['se_td']) / par['se_dwn'])
         logger.info(f"Preparing obs data for source encoding  gamma {par['se_gamma']}")
-        if (par['se_t0']):
-            logger.info("Using gamma * t0 damping")
+        # if (par['se_t0']):
+        #     logger.info("Using gamma * t0 damping")
         #logger.info(f"{fid}")
         fftobs_full = [] #np.zeros((len(freq),nstation),dtype=complex)
         t0_array = []
+        amp0_array = []
+
+        t0_max = par['se_t0_max'] + (iteration - 1) * (1 / par['se_max_freq'])
+        if t0_max > par['se_bunks_t0max']:
+            t0_max = par['se_bunks_t0max']
+        if (par['se_t0']):
+            logger.info(f"Using gamma * t0 damping [t0_max: {t0_max}]")
+                    
         for ifreq in range(0,len(freq)):
             source_name = "{:03}".format(rdi[ifreq] + 1)
             path = os.path.join(path_scratch,source_name,"traces","obs")
@@ -1013,6 +1031,13 @@ class Default:
                 distance = np.sqrt((sx - rx)**2 + (sy - ry)**2) * (sx - rx) / np.abs(sx - rx)
                 # tr_obs.stats.distance = distance
                 # obs_data_raw[ir].stats.distance = distance
+
+
+
+                if (par['se_wamp0']):
+                    amp0 = np.max(abs(data_obs))
+                else:
+                    amp0 = 1.0
                 if (par['se_t0']):
                     #logger.info("Using gamma * t0 damping")
                     t0 = pick_t0(data_obs,tr_obs.stats.delta,1.0 / par['se_max_freq'])
@@ -1022,16 +1047,21 @@ class Default:
                 #plt.plot(distance/1000,t0,"ro")
                 #data_obs_old = data_obs.copy()
                 if (par['se_t0_mute']) and (par['se_t0']):
-                    if t0 < par['se_t0_min'] or t0 > par['se_t0_max']:
+                    if t0 < par['se_t0_min'] or t0 > t0_max:
                         #logger.info(f"Muting {t0}")
                         t0 = 0.0
                         data_obs = data_obs * 0.0
-                    
+
+                t0 -= par['se_t0_offset']
                 #logger.info(f"Muting {t0}")
-                data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
+                if par['se_gamma_t0']:
+                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
+                else:
+                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt))
                 #data_obs *= np.exp(1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
 
                 t0_array.append(t0)
+                amp0_array.append(amp0)
                 # tr_obs.data = data_obs
                 # import matplotlib.pyplot as plt
                 # plt.figure()
@@ -1059,6 +1089,24 @@ class Default:
         nfreq = len(freq); nstation = int(len(fftobs_full) / len(freq))
         fftobs_full = np.reshape(np.array(fftobs_full),(nfreq,nstation))
         t0_array = np.reshape(np.array(t0_array),(nfreq,nstation))
+
+        if (par['se_wamp0']):
+            amp0_array = np.reshape(np.array(amp0_array),(nfreq,nstation))
+
+            for i in range(nfreq):
+                amp0_array[i,:] /= np.max(amp0_array[i,:])
+            amp0_array[amp0_array < 0.1] = 0.1
+            amp0_array = amp0_array**(-0.5)
+            #amp0_array[:,:] = 1.0
+            # for i in range(nfreq):
+            #     idx = np.argmax(amp0_array[i,:])
+            #     for j in range(0,nstation):
+            #         amp0_array[i,j] = abs(idx - j)**2
+            #     amp0_array[i,:] /= 0.1 * np.max(amp0_array[i,:])
+            # amp0_array[amp0_array < 0.1] = 0.1
+            
+           
+
         # import matplotlib.pyplot as plt
         # plt.figure()
         # for i in range(0,len(freq)):
@@ -1068,6 +1116,8 @@ class Default:
         path = os.path.join(path_scratch,"001","traces")
         np.save(os.path.join(path, fid + "_ft_obs"),fftobs_full)
         np.save(os.path.join(path, "t0_array"),t0_array)
+        if (par['se_wamp0']):
+            np.save(os.path.join(path, "amp0_array"),amp0_array)
         
 
 
@@ -1200,7 +1250,7 @@ def pick_t0(data,dt,min_period,thr_1=0.6,thr_2=0.3):
                     
 
 
-def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
+def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid,iteration):
     from scipy.fft import fft,fftfreq
     import numpy as np
     import obspy
@@ -1251,7 +1301,10 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid):
             #fft_syn *= fft_stf * 1.0e-10
 
         #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
-        fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+        if par['se_gamma_t0']:
+            fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+        else:
+            fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf
         
         #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
         

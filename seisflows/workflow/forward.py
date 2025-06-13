@@ -334,8 +334,12 @@ class Forward:
         from seisflows.tools.config import get_task_id
         from seisflows.tools.specfem import setpar
         import glob
+        import time
 
-        random.seed(seed)
+
+        seed_l = int(time.time())
+        logger.info(f" --------> Seed <------- {seed_l}")
+        random.seed(seed_l)
         
         se_dt = self.se_dt * self.se_dwn
         se_t = int(self.se_t  / self.se_dwn)
@@ -356,7 +360,7 @@ class Forward:
         
         imin = int(np.ceil(self.se_min_freq / f0))
         
-        imax = int(np.floor(se_max_freq_temp / f0))
+        imax = int(np.floor(se_max_freq_temp / f0)) + 1
         
         w_v = np.fft.fftfreq(se_ntss,se_dt)[imin:imax]
         
@@ -366,27 +370,46 @@ class Forward:
         
         se_nfreq = len(w_v)
 
-
         r1 = int(se_nfreq / self.ntask)
         r2 = se_nfreq % self.ntask
         rdi=np.zeros(se_nfreq,dtype=int)
         if r1==0: # nfreqs is smaller than self.ntask
-            nevent_loc = int(self.ntask / self.se_nbands)
-            nfreq_loc = int(se_nfreq / self.se_nbands )
-            nfreq_loc_rm = se_nfreq % self.se_nbands
-            for i in range(self.se_nbands):
-                events_local = []
-                idxs = random.sample(range(nevent_loc),nfreq_loc)
-                for ievent in idxs:
-                    events_local.append(ievent + nevent_loc * i)
-                rdi[i * nfreq_loc : (i + 1) * nfreq_loc]  = \
-                    random.sample(events_local , nfreq_loc)
-            rdi[(i + 1 ) * nfreq_loc + np.arange(nfreq_loc_rm)] = random.sample(range(self.ntask), nfreq_loc_rm)
-            rdi = rdi[random.sample(range(se_nfreq),se_nfreq)]
+            # nevent_loc = int(self.ntask / self.se_nbands)
+            # nfreq_loc = int(se_nfreq / self.se_nbands )
+            # nfreq_loc_rm = se_nfreq % self.se_nbands
+            # for i in range(self.se_nbands):
+            #     events_local = []
+            #     idxs = random.sample(range(nevent_loc),nfreq_loc)
+            #     for ievent in idxs:
+            #         events_local.append(ievent + nevent_loc * i)
+            #     rdi[i * nfreq_loc : (i + 1) * nfreq_loc]  = \
+            #         random.sample(events_local , nfreq_loc)
+            # rdi[(i + 1 ) * nfreq_loc + np.arange(nfreq_loc_rm)] = random.sample(range(self.ntask), nfreq_loc_rm)
+            # rdi = rdi[random.sample(range(se_nfreq),se_nfreq)]
+            rdi = random.sample(range(self.ntask), r2)
         else: # num_freqs is larger than nevents
             for i in range(r1):
                 rdi[i * self.ntask : (i + 1) * self.ntask] = random.sample(range(self.ntask), self.ntask)
                 rdi[(i + 1 ) * self.ntask + np.arange(r2)] = random.sample(range(self.ntask), r2)
+
+        # seed_idx = 1        
+        # if seed > 1:
+        #     seed_idx = np.load(self.path_specfem_data + "/seed_idx.npy")
+        #     if seed_idx == 1:
+        #         seed_idx = 0
+        #     else:
+        #         seed_idx = 1
+                
+        #     rdi_old = np.load(self.path_specfem_data + "/es_rdi.npy")
+        #     np.save(os.path.join(self.path['scratch'],"optimize", f"es_rdi_{seed}"),rdi_old)
+        #     idx_rand = np.arange(seed_idx,len(rdi_old),2)
+        #     rdi[idx_rand] = rdi_old[idx_rand]
+
+        #     slot_avail = [x for x in range(len(rdi)) if x not in idx_rand]
+        #     for itask in random.sample(range(self.ntask),self.ntask):
+        #         if itask not in rdi and len(slot_avail) > 0:
+        #             rdi[slot_avail[0]] = itask
+        #             slot_avail.remove(slot_avail[0])
 
         logger.info(f"imin - imax : {imin} - {imax} ")
         logger.info(f"w_idx_glob : {w_idx_glob}")
@@ -396,6 +419,7 @@ class Forward:
         logger.info(f"SE_NFREQ : {len(w_v)}")
         logger.info(f"SE_RAND_IDX : {rdi}")
         logger.info(f"SE_DIFF_W : {diff_w}")
+        #logger.info(f"SE_seed_idx : {seed_idx}")
 
         stf = np.loadtxt(self.path.data + "/001/OUTPUT_FILES/plot_source_time_function.txt")[:,1]
 
@@ -419,6 +443,7 @@ class Forward:
         np.save(self.path_specfem_data + "/es_freq",w_v)
         np.save(self.path_specfem_data + "/es_rdi",rdi)
         np.save(self.path_specfem_data + "/es_freq_idx_glob",w_idx_glob)
+        #np.save(self.path_specfem_data + "/seed_idx",seed_idx)
 
         from seisflows.tools.specfem import setpar
         from seisflows.tools.config import get_task_id
@@ -538,7 +563,7 @@ class Forward:
             #self.prepare_obs_data_se()
             
 
-            self.system.run([self.run_forward_simulations],single=True,
+            self.system.run([self.run_forward_simulations],gpu=True,single=True,
                             path_model=self.path.model_init)#
                         #save_residuals=os.path.join(self.path.eval_grad,
 #                                                    "residuals_{src}_1_0.txt")
@@ -556,7 +581,7 @@ class Forward:
 
         else:
             
-            self.system.run(run_list, path_model=self.path.model_init,
+            self.system.run(run_list, gpu=True,path_model=self.path.model_init,
                             save_residuals=os.path.join(self.path.eval_grad,
                                                         "residuals_{src}_1_0.txt")
                             )

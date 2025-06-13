@@ -79,10 +79,12 @@ class Slurm(Cluster):
         # Must be overwritten by child class
         self.partition = "cpu"
         self.submit_to = self.partition
-        self._partitions = {"cpu":2}
+        self._partitions = {"cpu":4}
+        self.par = kwargs
 
         # Convert walltime and tasktime to datetime str 'H:MM:SS'
         self._tasktime = str(timedelta(minutes=self.tasktime))
+        self._gpu_tasktime = str(timedelta(minutes=self.par['gpu_tasktime']))
         self._walltime = str(timedelta(minutes=self.walltime))
 
     def check(self):
@@ -110,6 +112,7 @@ class Slurm(Cluster):
     @property
     def nodes(self):
         """Defines the number of nodes which is derived from system node size"""
+        #print(self.nproc,self.node_size)
         _nodes = np.ceil(self.nproc / float(self.node_size))
         _nodes = _nodes.astype(int)
         return _nodes
@@ -131,15 +134,27 @@ class Slurm(Cluster):
         :rtype: str
         :return: the system-dependent portion of a submit call
         """
+        # _call = " ".join([
+        #     f"sbatch",
+        #     f"{self.slurm_args or ''}",
+        #     f"--job-name={self.title}",
+        #     f"--output={self.path.output_log}",
+        #     f"--error={self.path.output_log}",
+        #     f"--ntasks-per-node={self.node_size}",
+        #     f"--nodes=1",
+        #     f"--time={self._walltime}"
+
+
+        # Armando
         _call = " ".join([
             f"sbatch",
-            f"{self.slurm_args or ''}",
             f"--job-name={self.title}",
             f"--output={self.path.output_log}",
             f"--error={self.path.output_log}",
             f"--ntasks-per-node={self.node_size}",
             f"--nodes=1",
             f"--time={self._walltime}"
+                    
         ])
         return _call
 
@@ -166,6 +181,21 @@ class Slurm(Cluster):
              f"--array=0-{self.ntask-1}%{self.ntask_max}",
              f"--parsable"
         ])
+
+        # if self.par['source_encoding']:
+        #     _call = " ".join([
+        #      f"sbatch",
+        #      f"{self.slurm_args or ''}",
+        #      f"--job-name={self.title}",
+        #      f"--nodes={self.nodes}",
+        #      f"--ntasks-per-node={self.node_size:d}",
+        #      f"--ntasks={self.nproc:d}",
+        #      f"--time={self._tasktime}",
+        #      f"--output={os.path.join(self.path.log_files, '%A_%a')}",
+        #      f"--array=0-0",
+        #      f"--parsable"
+        # ])
+            
         return _call
 
     @staticmethod
@@ -202,7 +232,7 @@ class Slurm(Cluster):
 
         return job_id
 
-    def run(self, funcs, single=False, **kwargs):
+    def run(self, funcs, single=False,gpu=False, **kwargs):
         """
         Runs task multiple times in embarrassingly parallel fasion on a SLURM
         cluster. Executes the list of functions (`funcs`) NTASK times with each
@@ -233,13 +263,29 @@ class Slurm(Cluster):
 
         # Default sbatch command line input, can be overloaded by subclasses
         # Copy-paste this default run_call and adjust accordingly for subclass
-        run_call = " ".join([
+
+        if gpu:
+            run_call = " ".join([
             f"{self.run_call_header}",
-            f"{self.run_functions}",
-            f"--funcs {funcs_fid}",
-            f"--kwargs {kwargs_fid}",
-            f"--environment {self.environs or ''}"
-        ])
+                f"--gres=gpu:{self.nproc}",
+                f"{self.run_functions}",
+                f"--funcs {funcs_fid}",
+                f"--kwargs {kwargs_fid}",
+                f"--environment {self.environs or ''}"])
+
+            for part in run_call.split(" "):
+                if "--time" in part:
+                    run_call = run_call.replace(part, f"--time={self._gpu_tasktime}")
+
+
+        else:
+            run_call = " ".join([
+                f"{self.run_call_header}",
+                f"{self.run_functions}",
+                f"--funcs {funcs_fid}",
+                f"--kwargs {kwargs_fid}",
+                f"--environment {self.environs or ''}"
+            ])
 
         # Single-process jobs simply need to replace a few sbatch arguments.
         # Do it AFTER `run_call` has been defined so that subclasses submitting
@@ -247,7 +293,7 @@ class Slurm(Cluster):
         if single:
             logger.info("replacing parts of sbatch run call for single "
                         "process job")
-            run_call = modify_run_call_single_proc(run_call)
+            run_call = modify_run_call_single_proc(run_call)    
 
         logger.debug(run_call)
 
