@@ -631,23 +631,10 @@ class Default:
                     
                     
                 for ifreq in range(len(freq)):
-                    fft_obs[abs(fft_obs) < np.max(np.abs(fft_obs)) * 1e-2] = 0.0 + 0j
-                    fft_syn[abs(fft_obs) < np.max(np.abs(fft_obs)) * 1e-2] = 0.0 + 0j
-                    # obs_p = fft_obs[ifreq,:]
-                    # syn_p = fft_syn[ifreq,:]
-                    # ratio_p  = np.divide(syn_p, obs_p, out=np.zeros_like(syn_p), where=np.abs(obs_p)!=0)
-                    # phase_w = unwrap_d(np.angle(ratio_p),t0_array[ifreq,:])
-                    # logger.info(f"T0: {t0_array[ifreq,:]}")
-                    # logger.info(f"Phase: {phase_w}")
-                    # phase_w[np.abs(phase_w) > 0] = 1.0
-                    # Wp[ifreq,:] *= phase_w
-                    #logger.info(f"Wp: {Wp[ifreq,:]}")
-                    # Andreas avoid uq in teh phase
-                    #Wp[ifreq,:] = np.log(1 + np.abs(fft_obs[ifreq,:]))
-                    #Wp[ifreq,:] /= np.max(Wp[ifreq,:])
-
-                # Wp = np.log(1 + np.abs(fft_obs))
-                # Wp /= np.max(Wp)
+                    max_amp = np.max(abs(fft_obs[ifreq,:]))
+                    idx = abs(fft_obs[ifreq,:]) < max_amp * 1e-2
+                    fft_obs[ifreq,idx] = 0.0 + 0j
+                    fft_syn[ifreq,idx] = 0.0 + 0j
 
 
                 for istat in range(0,len(syn)):
@@ -975,7 +962,7 @@ class Default:
         t0_array = []
         amp0_array = []
 
-        t0_max = par['se_t0_max'] + (iteration - 1) * (1 / par['se_max_freq'])
+        t0_max = par['se_t0_max'] + (iteration - 1) * (0.5 / par['se_max_freq'])
         if t0_max > par['se_bunks_t0max']:
             t0_max = par['se_bunks_t0max']
         if (par['se_t0']):

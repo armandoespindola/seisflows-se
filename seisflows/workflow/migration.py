@@ -230,6 +230,45 @@ class Migration(Forward):
                     gradient.model[kernels][iproc][idx] = 0.0
                     
             gradient.write(path=os.path.join(self.path.eval_grad, "misfit_kernel"))
+
+
+
+        def normalize_hessian():
+            import numpy as np
+
+            # gradient = Model(path=os.path.join(self.path.eval_grad, "H_nosmooth")
+            #                  ,regions=self.solver._regions)
+
+            # for parameters in self.solver._parameters:
+            #     p_old = 0.0 
+            #     kernels = parameters + "_kernel"
+            #     for iproc in range(len(gradient.model[kernels])):
+            #         p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),98.0)
+            #         if p_old < p_new:
+            #             p_old = p_new
+            #     for iproc in range(len(gradient.model[kernels])):
+            #         idx = np.where(np.abs(gradient.model[kernels][iproc]) > p_old)
+            #         gradient.model[kernels][iproc][idx] = 0.0
+                    
+            # gradient.write(path=os.path.join(self.path.eval_grad, "H_nosmooth"))
+            
+            gradient = Model(path=os.path.join(self.path.eval_grad, "misfit_kernel")
+                             ,regions=self.solver._regions)
+
+            for parameters in self.solver._parameters:
+                p_old = 0.0 
+                kernels = parameters + "_kernel"
+                for iproc in range(len(gradient.model[kernels])):
+                    p_new = np.max(np.abs(gradient.model[kernels][iproc]))
+                    if p_old < p_new:
+                        p_old = p_new
+                for iproc in range(len(gradient.model[kernels])):
+                    idx = np.where(np.abs(gradient.model[kernels][iproc]) < p_old * 5e-2)
+                    gradient.model[kernels][iproc][idx] = abs(p_old) * 5e-2
+                gradient.model[kernels][:][:] = np.abs(gradient.model[kernels][:][:])
+                    
+                    
+            gradient.write(path=os.path.join(self.path.eval_grad, "H_nosmooth"))
                 
                     
             
@@ -259,6 +298,7 @@ class Migration(Forward):
                                              "misfit_kernel")
                 )
 
+                
                 if self.kargs['preconditioner'] is not None:
                     if self.kargs['preconditioner'] == 'DIAGONAL':
                         self.solver.smooth(
@@ -278,8 +318,8 @@ class Migration(Forward):
                             input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
                             output_path=os.path.join(self.path.eval_grad,
                                                      "Hessian"),
-                            span_h = self.kargs['smooth_v'] * 4,
-                            span_v = self.kargs['smooth_v'] * 4)
+                            span_h = self.kargs['smooth_v'] * 10,
+                            span_v = self.kargs['smooth_v'] * 10)
                     
                     if self.kargs['preconditioner'] == 'DIAGONAL':
                         for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
@@ -304,6 +344,7 @@ class Migration(Forward):
                         single=True)
 
         percentile_kernel()
+        normalize_hessian()
 
         self.system.run([smooth_misfit_kernel],
                         single=True,gpu=True)

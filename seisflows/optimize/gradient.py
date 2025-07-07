@@ -293,11 +293,15 @@ class Gradient:
             if self.preconditioner.upper() == "DIAGONAL" or "APPROX":
                 logger.info("applying diagonal preconditioner")
 
+
+
+                #import sys
+                #sys.exit()
                 diag  = np.abs(p.vector)
 
                 diag /= np.max(diag)
 
-                diag[abs(diag) < 0.2] = 0.2
+                #diag[abs(diag) < 0.1] = 0.1
                 diag = 1.0 / diag
                 return diag * q
             else:

@@ -129,7 +129,7 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     residual = residual * syn * np.conj(fft_stf) * Wp
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
-    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
 
     tw = t0_array.copy()
     if np.any(tw < 0):
