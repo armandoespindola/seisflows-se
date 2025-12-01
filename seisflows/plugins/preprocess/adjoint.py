@@ -100,7 +100,14 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     import matplotlib.pyplot as plt
     from scipy.fft import fft,fftfreq,ifft
 
-    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    omega = 2.0 * np.pi * freq
+
+    
+    # To compute velocity P \approx u so P_dot \approx v in reciprocity formulation 
+    ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    
+    #ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    
     #plt.figure()
     #plt.plot(np.angle(ratio),'g')
     #plt.show()
@@ -119,14 +126,17 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
-    omega = 2.0 * np.pi * freq
 
-    # Arm: I added a threshold for smaller amplitudes
-    amp_syn = np.abs(syn)
+    # Arm: I added a threshold for smaller amplitudes (velocity)
+    amp_syn = np.abs(syn * 1j * omega)
     #amp_syn[amp_syn < np.max(amp_syn) * 1e-1] = 0.0
     phase = np.angle(syn)
 
     residual = residual * syn * np.conj(fft_stf) * Wp
+
+    # To save as potential (Daniel Peter)
+    residual *= omega**3.0  * -1j * 1j * omega
+    #residual *= (omega)**2
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
     residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)

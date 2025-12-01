@@ -632,7 +632,7 @@ class Default:
                     
                 for ifreq in range(len(freq)):
                     max_amp = np.max(abs(fft_obs[ifreq,:]))
-                    idx = abs(fft_obs[ifreq,:]) < max_amp * 1e-2
+                    idx = abs(fft_obs[ifreq,:]) < max_amp * 5e-2
                     fft_obs[ifreq,idx] = 0.0 + 0j
                     fft_syn[ifreq,idx] = 0.0 + 0j
 
@@ -679,7 +679,7 @@ class Default:
                         if save_residuals and self._calculate_misfit:
                             residual,diff = self._calculate_misfit(
                                 obs=obs_data, syn=syn_data, Wp = Wp[:,istat],tka=freq**self.par['se_alpha'],
-                            t0_array=t0_array[:,istat])
+                                t0_array=t0_array[:,istat],freq = freq)
 
                             if self.par['se_double_difference']:
                                 #logger.info('Double difference')
@@ -697,7 +697,7 @@ class Default:
                                                                            syn=syn_data * fft_obs[:,jstat],
                                                                          Wp = Wp[:,istat],
                                                                          tka=freq**self.par['se_alpha'],
-                                                                         t0_array=t0_array[:,istat])
+                                                                         t0_array=t0_array[:,istat],freq = freq)
                                         if isinstance(diff2,list):
                                             diff_sum1 = np.nansum([diff_sum1,diff2[0]],axis=0)
                                             diff_sum2 = np.nansum([diff_sum2,diff2[1]],axis=0)

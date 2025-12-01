@@ -212,11 +212,13 @@ def se_waveform(syn,obs,Wp,t0):
     misfit = np.sum(np.multiply(residual,np.conj(residual)))
     return np.sqrt(np.real(misfit)),residual
 
-def se_phase_exp(syn,obs,Wp,tka,t0_array):
+def se_phase_exp(syn,obs,Wp,tka,t0_array,freq):
     # Exponential Phase Misfit
     # ratio = syn / obs
 
-    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    omega = 2 * np.pi * freq
+    ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    #ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
     #angle_unwrap = np.unwrap(np.angle(ratio))
 
     tw = t0_array.copy()
