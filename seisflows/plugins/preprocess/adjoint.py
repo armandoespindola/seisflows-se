@@ -102,11 +102,14 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
 
     omega = 2.0 * np.pi * freq
 
-    
+
+    # TESTING : FOR PRESURE FORMULATION
     # To compute velocity P \approx u so P_dot \approx v in reciprocity formulation 
-    ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    # ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+
     
-    #ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    
     
     #plt.figure()
     #plt.plot(np.angle(ratio),'g')
@@ -127,16 +130,23 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
 
+    # TESTING : FOR PRESURE FORMULATION
     # Arm: I added a threshold for smaller amplitudes (velocity)
-    amp_syn = np.abs(syn * 1j * omega)
-    #amp_syn[amp_syn < np.max(amp_syn) * 1e-1] = 0.0
+    # amp_syn = np.abs(syn * 1j * omega)
+
+    amp_syn = np.abs(syn)
+    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+
+    
     phase = np.angle(syn)
 
-    residual = residual * syn * np.conj(fft_stf) * Wp
+    residual = residual * syn * np.conj(fft_stf) #* Wp
 
-    # To save as potential (Daniel Peter)
-    residual *= omega**3.0  * -1j * 1j * omega
-    #residual *= (omega)**2
+    # TESTING : FOR PRESURE FORMULATION
+    # To save as potential (Daniel Peter's paper)
+    # residual *= omega**3.0  * -1j * 1j * omega
+    
+    
 
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
     residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
@@ -151,7 +161,7 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     if gamma_t0:
         residual *= np.exp(gamma * t0_array)
         
-    fft_wadj[freq_idx] = residual * tw
+    fft_wadj[freq_idx] = residual #* tw
     fft_wadj[-freq_idx] = np.conj(residual)
 
     # wadj = np.zeros(nt_se)
@@ -161,10 +171,12 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     wadj = np.real(ifft(fft_wadj))
     #wadj[:] = 1.0     
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
-    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
-    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
-    ntaper = np.int(0.025 * nt) # 5% taper
-    wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
+    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+
+    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
+
+    # ntaper = np.int(0.025 * nt) # 5% taper
+    # wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
 
     # plt.figure()
     # plt.plot(np.abs(residual),'b')
@@ -195,12 +207,6 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     from scipy.fft import fft,fftfreq,ifft
 
     ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
-    #plt.figure()
-    #plt.plot(np.angle(ratio),'g')
-    #plt.show()
-    #ratio *= Wp
-
-#   ratio[np.angle(ratio) > np.pi / 2.0] = 0.0
     residual = np.angle(ratio)
 
     if dd_diff:
@@ -208,22 +214,22 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
             residual = dd_r[0]
         else:
             residual =  dd_r
-        
-    #residual[np.isnan(Wp)] = 0.0 
     
     nt = se_t
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
 
-    # Arm: I added a threshold for smaller amplitudes
+    
     amp_syn = np.abs(syn)
-    # amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+
+    
+    # Arm: I added a threshold for smaller amplitudes
+    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+
     phase = np.angle(syn)
 
     residual = residual * syn * np.conj(fft_stf)
-
-    # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
-    residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
+    residual = np.divide(residual, amp_syn**2, out=np.zeros_like(residual), where=amp_syn!=0)
 
     tw = t0_array.copy()
     if np.any(tw < 0):
@@ -242,10 +248,10 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
     wadj = np.real(ifft(fft_wadj))
     #wadj[:] = 1.0     
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
-    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
-    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
+    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+    # wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
     ntaper = np.int(0.025 * nt) # 5% taper
-    wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
+    #wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
 
     # plt.figure()
     # plt.plot(np.abs(residual),'b')
