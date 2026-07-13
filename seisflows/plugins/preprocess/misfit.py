@@ -35,6 +35,23 @@ def waveform(syn, obs, nt, dt, *args, **kwargs):
 
     return np.sqrt(np.sum(wrsd * wrsd * dt))
 
+def waveform_mig(syn, obs, nt, dt, *args, **kwargs):
+    """
+    Direct waveform differencing
+
+    :type syn: np.array
+    :param syn: synthetic data array
+    :type obs: np.array
+    :param obs: observed data array
+    :type nt: int
+    :param nt: number of time steps in the data array
+    :type dt: float
+    :param dt: time step in sec
+    """
+    wrsd = syn - obs
+
+    return np.sqrt(np.sum(wrsd * wrsd * dt))
+
 
 def envelope(syn, obs, nt, dt, *args, **kwargs):
     """
@@ -207,8 +224,8 @@ def instantaneous_phase2(syn, obs, nt, dt, eps=0., *args, **kwargs):
 
 
 
-def se_waveform(syn,obs,Wp,t0):
-    residual = syn - obs
+def se_waveform(syn,obs,Wp,tka,t0_array,freq):
+    residual = (syn - obs) #* np.sqrt(t0_array)
     misfit = np.sum(np.multiply(residual,np.conj(residual)))
     return np.sqrt(np.real(misfit)),residual
 
@@ -217,17 +234,18 @@ def se_phase_exp(syn,obs,Wp,tka,t0_array,freq):
     # ratio = syn / obs
 
     omega = 2 * np.pi * freq
-    ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
-    #ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    #ratio = np.divide(syn * 1j * omega, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
+    ratio = np.divide(syn, obs, out=np.zeros_like(syn), where=np.abs(obs)!=0)
     #angle_unwrap = np.unwrap(np.angle(ratio))
 
     tw = t0_array.copy()
     if np.any(tw < 0):
         tw += abs(np.min(tw))
+    tw [tw < 1.0] = 1.0
     tw = tw
     
-    residual = np.sqrt(0.5) * np.sin(0.50 * np.angle(ratio)) * Wp * np.sqrt(tw) #* np.sqrt(tw)
-    misfit = np.sqrt(np.sum(np.multiply(residual,residual)))
+    residual = np.sin(0.50 * np.angle(ratio)) #* np.sqrt(tw) #* Wp #*  #* np.sqrt(tw)
+    misfit = 2.0 * np.sum(np.multiply(residual,residual))
     return misfit,residual
 
 
@@ -249,7 +267,7 @@ def se_phase(syn,obs,Wp,tka,t0_array):
     return misfit,residual
 
 
-def se_amplitude(syn,obs,Wp,t0):
+def se_amplitude(syn,obs,Wp,tka,t0_array,freq):
     # Exponential Phase Misfit
     # ratio = syn / obs
     amp_syn = np.abs(syn)
@@ -261,9 +279,9 @@ def se_amplitude(syn,obs,Wp,t0):
     return misfit,residual
 
 
-def se_amp_phase(syn,obs,Wp,t0):
-    amp_misfit,amp_residual = se_amplitude(syn,obs,Wp,t0)
-    phase_misfit,phase_residual = se_phase(syn,obs,Wp,t0)
+def se_amp_phase_exp(syn,obs,Wp,tka,t0_array,freq):
+    amp_misfit,amp_residual = se_amplitude(syn,obs,Wp,tka,t0_array,freq)
+    phase_misfit,phase_residual = se_phase_exp(syn,obs,Wp,tka,t0_array,freq)
     misfit = amp_misfit + phase_misfit
     residual = [phase_residual , amp_residual] 
     return misfit,residual

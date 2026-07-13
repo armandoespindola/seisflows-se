@@ -274,9 +274,9 @@ class Default:
             #ARMANDO : SU check in mu seconds (1e-3) units
             for ist in st:
                 if ist.stats.delta < 9e-4:
-                    logger.info("Warning Delta")
+#                    logger.info("Warning Delta")
                     ist.stats.delta *= 1000.0
-            #logger.info(f"{st[0].stats.delta}")
+#            logger.info(f" DELTA  ---- {st[0].stats.delta}")
         elif data_format.upper() == "SAC":
             st = obspy_read(fid, format="SAC")
         elif data_format.upper() == "ASCII":
@@ -555,6 +555,7 @@ class Default:
             if self.filter:
                 if not self.par['source_encoding']:
                     obs = self._apply_filter(obs)
+                    logger.info("filter obs")
                 syn = self._apply_filter(syn)
                 logger.info("filter syn")
                 #obs[0].plot()
@@ -563,6 +564,7 @@ class Default:
 #                logger.info("Mute")
                 if not self.par['source_encoding']:
                     obs = self._apply_mute(obs)
+                    logger.info("mute obs")
                 #syn = self._apply_mute(syn)
                 #obs[0].plot()
                 #syn[0].plot()
@@ -601,6 +603,18 @@ class Default:
                 
                 fft_syn = np.load(path + "/{}_ft_syn.npy".format(syn_fid))
                 freq = np.load(self.par['path_specfem_data'] + "/es_freq.npy")
+
+                # Muting small amplitudes
+                # for ifreq in range(len(freq)):
+                #     max_amp = np.max(abs(fft_obs[ifreq,:]))
+                #     log_amp = abs(fft_obs[ifreq,:])/ max_amp
+                #     idx = log_amp < 1e-6
+                #     fft_obs[ifreq,idx] = 0.0 + 0j
+                #     fft_syn[ifreq,idx] = 0.0 + 0j
+
+                np.save(path + "/{}_ft_obs.npy".format(obs_fid),fft_obs)
+                np.save(path + "/{}_ft_syn.npy".format(obs_fid),fft_syn)
+
                 rdi = np.load(self.par['path_specfem_data'] + "/es_rdi.npy")
                 fft_stf = np.load(self.par['path_specfem_data'] + "/fft_stf.npy")
                 freq_idx_glob = np.load(self.par['path_specfem_data'] + "/es_freq_idx_glob.npy")
@@ -621,6 +635,12 @@ class Default:
                 else:
                     Wp = np.abs(fft_obs) * 0.0 + 1.0
 
+                # if not self.par['se_t0']:
+                #     t0_array[:] = 1.0
+
+                # Wp = t0_array.copy()
+                # Wp = np.exp(self.par['se_gamma'] * Wp) / np.exp(self.par['se_gamma'] * np.max(Wp))
+                # np.save(os.path.join(path, "amp0_array"),Wp)
                 
                 # for istat in range(0,len(syn)):
                 #     obs_p = fft_obs[:,istat]
@@ -629,12 +649,6 @@ class Default:
                 #     phase_w = unwrap(np.angle(ratio_p))
                 #     Wp[:,istat] *= phase_w
                     
-                    
-                for ifreq in range(len(freq)):
-                    max_amp = np.max(abs(fft_obs[ifreq,:]))
-                    idx = abs(fft_obs[ifreq,:]) < max_amp * 5e-2
-                    fft_obs[ifreq,idx] = 0.0 + 0j
-                    fft_syn[ifreq,idx] = 0.0 + 0j
 
 
                 for istat in range(0,len(syn)):
@@ -796,6 +810,10 @@ class Default:
                         obs=obs_data, syn=syn_data,
                         nt=tr_syn.stats.npts, dt=tr_syn.stats.delta
                     )
+
+                    if os.path.basename(syn_fid)[1].upper() not in list(self.par['components']):
+                        residual = residual * 0.0
+                        
                     with open(save_residuals, "a") as f:
                         f.write(f"{residual:.2E}\n")
 
@@ -806,14 +824,21 @@ class Default:
                     adjsrc_st.data = self._generate_adjsrc(
                         obs=obs_data, syn=syn_data,
                         nt=tr_syn.stats.npts, dt=tr_syn.stats.delta)
+                    if os.path.basename(syn_fid)[1].upper() not in list(self.par['components']):
+                        adjsrc_st.data[:] = 0.0
                     #adjsrc_st.plot()
                     adjsrc.append(adjsrc_st)
-                    fid = os.path.basename(syn_fid)
-                    fid = self._rename_as_adjoint_source(fid)
-                    self.write(st=adjsrc, fid=os.path.join(save_adjsrcs, fid))
+                    #logger.info(f"interpolation{(tr_syn.stats.delta * 0.1)}")
+                    #adjsrc.resample(sampling_rate = 1.0 / (tr_syn.stats.delta * 0.1))
 
-        if save_adjsrcs and self._generate_adjsrc:
-            self._check_adjoint_traces(source_name, save_adjsrcs, synthetic)
+            adjsrc.resample(sampling_rate = 1.0 / (tr_syn.stats.delta * 0.1))
+            adjsrc.taper(0.05,side='right')
+            fid = os.path.basename(syn_fid)
+            fid = self._rename_as_adjoint_source(fid)
+            self.write(st=adjsrc, fid=os.path.join(save_adjsrcs, fid))
+
+        # if save_adjsrcs and self._generate_adjsrc:
+        #     self._check_adjoint_traces(source_name, save_adjsrcs, synthetic)
 
         # Exporting residuals to disk (output/) for more permanent storage
         if export_residuals:
@@ -885,9 +910,11 @@ class Default:
         """
         mute_choices = [_.upper() for _ in self.mute]
         if "EARLY" in mute_choices:
+            logger.info('MUTE EARLY')
             st = signal.mute_arrivals(st, slope=self.early_slope,
                                       const=self.early_const, choice="EARLY")
         if "LATE" in mute_choices:
+            logger.info('MUTE LATE')
             st = signal.mute_arrivals(st, slope=self.late_slope,
                                       const=self.late_const, choice="LATE")
         if "SHORT" in mute_choices:
@@ -962,11 +989,15 @@ class Default:
         t0_array = []
         amp0_array = []
 
-        t0_max = par['se_t0_max'] + (iteration - 1) * (0.5 / par['se_max_freq'])
+        t0_max = par['se_t0_max'] + (iteration - 1) * (0.25 / par['se_max_freq'])
         if t0_max > par['se_bunks_t0max']:
             t0_max = par['se_bunks_t0max']
         if (par['se_t0']):
-            logger.info(f"Using gamma * t0 damping [t0_max: {t0_max}]")
+            t_valid = par['se_td'] * par['se_dt']  #- 1.0 / par['se_gamma']
+            logger.info(f"Using gamma * t0 damping [t0_max: {t0_max}] [t_valid: {t_valid}]")
+            if t0_max > t_valid:
+                t_valid = t0_max
+                logger.info(f"WARNING: Using gamma * t0 damping [t0_max: {t0_max}] [t_valid: {t_valid}]")
                     
         for ifreq in range(0,len(freq)):
             source_name = "{:03}".format(rdi[ifreq] + 1)
@@ -988,29 +1019,23 @@ class Default:
             # fig = plt.figure()
             # obs_data_raw = obs_data.copy()
             for ir,tr_obs in enumerate(obs_data):
-                data_obs = tr_obs.data.copy()
+                data_obs = np.float64(tr_obs.data.copy())
                 
                 dt = tr_obs.stats.delta
                 ntss = se_ntss
-
+                #logger.info(f"SAMPLES: {len(data_obs)} -- {ntss}")
                 if len(data_obs) < ntss:
-                    ntaper = int(len(data_obs) * 0.025)
-                    taper = np.hanning(ntaper * 2)
-                    data_obs[:ntaper] *= taper[:ntaper]
-                    data_obs[-ntaper:] *= taper[-ntaper:]
-                    data_obs = np.pad(data_obs,(0,ntss - len(data_obs)),constant_values=(0, 0))
                     ksample = 1
                 else:
-                    ksample = 1
-                    data_obs = data_obs[:ntss]
-                    # ksample = np.int(np.ceil(len(data_obs) / ntss))
-                    # ntaper = int(len(data_obs) * 0.025)
-                    # taper = np.hanning(ntaper * 2)
-                    # data_obs[:ntaper] *= taper[:ntaper]
-                    # data_obs[-ntaper:] *= taper[-ntaper:]
-                    # data_obs = np.pad(data_obs,(0,ksample * ntss - len(data_obs)),constant_values=(0, 0))
+                    ksample = int(np.ceil(len(data_obs) / ntss))
 
 
+                ntaper = int(len(data_obs) * 0.025)
+                taper = np.hanning(ntaper * 2)
+                data_obs[:ntaper] *= taper[:ntaper]
+                data_obs[-ntaper:] *= taper[-ntaper:]
+                data_obs = np.pad(data_obs,(0,ntss * ksample - len(data_obs)),constant_values=(0, 0))
+                
                 sx = tr_obs.stats.su.trace_header.source_coordinate_x
                 sy = tr_obs.stats.su.trace_header.source_coordinate_y
                 rx = tr_obs.stats.su.trace_header.group_coordinate_x
@@ -1027,52 +1052,55 @@ class Default:
                     amp0 = 1.0
                 if (par['se_t0']):
                     #logger.info("Using gamma * t0 damping")
-                    t0 = pick_t0(data_obs,tr_obs.stats.delta,1.0 / par['se_max_freq'])
+                    # pick t0 move out (with distance)
+                    t0 = abs(distance) / par['se_minvp']
+                    if np.isnan(t0):
+                        t0 = 0.0
+                    #logger.info(f"Pick {abs(distance)} - {par['se_minvp']} - {t0}")
+                    #t0 = pick_t0(data_obs,par['se_dt'] * par['se_dwn'] ,1.0 / par['se_max_freq'])
+                    # #if t0 > 0:
+                    #logger.info(f"Pick {t0}")
                 else:
                     t0 = 0.0
-                #logger.info(f"Muting {t0}")
                 #plt.plot(distance/1000,t0,"ro")
                 #data_obs_old = data_obs.copy()
-                if (par['se_t0_mute']) and (par['se_t0']):
-                    if t0 < par['se_t0_min'] or t0 > t0_max:
-                        #logger.info(f"Muting {t0}")
+                if par['se_t0']:
+                    if par['se_t0_mute']:
+                        if t0 < par['se_t0_min'] or t0 > t0_max:
+                            t0 = 0.0
+                            data_obs = data_obs * 0.0
+
+                    # This is the maximun time in where the source encoding simulation is valid
+                    # that is, the Fourier/Laplace coeffiecients are correct
+                    # here I am bit coservative so I defined a threshold with inverse of gamma
+                    # |------------------|------------| #
+                    # 0                  td    |      t
+                    #                         tss
+                    
+                    t_valid = par['se_td'] * par['se_dt']  #- 1.0 / par['se_gamma']
+                    if t0_max > t_valid:
+                        t_valid = t0_max
+                    if t0 > t_valid:
                         t0 = 0.0
                         data_obs = data_obs * 0.0
+                            
+
 
                 t0 -= par['se_t0_offset']
                 #logger.info(f"Muting {t0}")
                 if par['se_gamma_t0']:
-                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt - t0))
+                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(ntss * ksample) * dt - t0),dtype=np.float64)
                 else:
-                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * dt))
-                #data_obs *= np.exp(1.0 * par['se_gamma'] * 1.20 / freq[ifreq])
-
+                    data_obs *= np.exp(-1.0 * par['se_gamma'] * (np.arange(ntss * ksample) * dt),dtype=np.float64)
+                
                 t0_array.append(t0)
                 amp0_array.append(amp0)
-                # tr_obs.data = data_obs
-                # import matplotlib.pyplot as plt
-                # plt.figure()
-                # plt.plot(data_obs_old,'k')
-                # plt.plot(data_obs,'r')
-                # plt.plot(data_obs_old * np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_obs)) * par['se_dt'])) ,'b')
-                # plt.show()
-
                 
-                fft_obs  = np.fft.fft(data_obs)[::ksample] #* np.exp(t0 * par['se_gamma'])
+                fft_obs  = np.fft.fft(np.float64(data_obs))[::ksample]
                 freq_obs = np.fft.fftfreq(len(fft_obs),dt)
-                #factor = np.exp(1j * freq_obs * 2.0 * np.pi * td)
-                #factor = np.exp(1j * freq_obs * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
-                # factor *= np.exp(-1j * freq_obs * 2.0 * np.pi * 1.20 / freq[ifreq])
-                #fft_obs *= factor  * -1.0j
-#                fft_obs[freq_idx_glob] /= fft_stf
-                #fftobs_full.append(fft_obs[freq_idx_glob[ifreq]]/ fft_stf[ifreq])
+
                 fftobs_full.append(fft_obs[freq_idx_glob[ifreq]])
-            #obs_data_raw.plot(type='section',fig=fig,color='red')
-            #obs_data.plot(type='section',fig=fig)
-            #plt.ylim((0,10))
-            #plt.show()
-                #t0_array.append(pick_t0(data_obs,tr_obs.stats.delta,par['se_min_freq']))
-#            logger.info(f"{source_name} -> freq:  {freq_obs[freq_idx_glob[ifreq]]} , {freq[ifreq]} ")
+
         nfreq = len(freq); nstation = int(len(fftobs_full) / len(freq))
         fftobs_full = np.reshape(np.array(fftobs_full),(nfreq,nstation))
         t0_array = np.reshape(np.array(t0_array),(nfreq,nstation))
@@ -1099,7 +1127,9 @@ class Default:
         # for i in range(0,len(freq)):
         #     plt.plot(t0_array[i,:])
         # plt.show()
-        # #logger.info(f"{fftobs_full.shape}")
+        #logger.info(f"type ----- {fftobs_full.dtype}")
+        #sys.exit()
+        
         path = os.path.join(path_scratch,"001","traces")
         np.save(os.path.join(path, fid + "_ft_obs"),fftobs_full)
         np.save(os.path.join(path, "t0_array"),t0_array)
@@ -1210,17 +1240,19 @@ def sta_lta(data, dt, min_period):
     sta[lta < TOL] = noise
     return sta[-len(data):]
 
-def pick_t0(data,dt,min_period,thr_1=0.6,thr_2=0.3):
+def pick_t0_p(data,dt,min_period,thr_1=0.6,thr_2=0.3):
     from obspy.signal.trigger import trigger_onset
     import matplotlib.pyplot as plt
     cft = np.abs(sta_lta(data, dt, min_period))
     on_off = trigger_onset(cft,thr_1,thr_2)
     # fig, axs = plt.subplots(1, 2, figsize=(9, 3))
-    # axs[0].plot(cft)
-    # axs[1].plot(data, 'k')
-    # axs[1].vlines(on_off[0, 0],-np.max(data),np.max(data), color='r', linewidth=2)
+    # axs[0].plot(env)
+    # axs[1].plot(cft, 'k')
+    # #axs[1].vlines(on_off[0, 0],-np.max(data),np.max(data), color='r', linewidth=2)
+    # plt.savefig("/scratch/gpfs/TROMP/ae2415/dno/RealData/model_2026/bien.png")
+    # sys.exit()
     # plt.show()
-    #logger.info(f"{on_off}")
+    # logger.info(f"{on_off}")
     if len(on_off) > 0:
         t0 = on_off[0,0] * dt
         #t0 = 0.0
@@ -1233,7 +1265,45 @@ def pick_t0(data,dt,min_period,thr_1=0.6,thr_2=0.3):
         #logger.info(f"{on_off}")
         t0 = 0.0
     return t0
-                    
+
+def pick_t0(data,dt,min_period,thr_1=0.6,thr_2=0.3):
+    from obspy.signal.trigger import trigger_onset
+    import matplotlib.pyplot as plt
+    from scipy.fftpack import hilbert as hb
+    from scipy import signal
+    
+    taper = signal.windows.tukey(len(data),0.1)
+    datap = data.copy() * taper
+    datap = np.pad(datap, (int(0.1*len(datap)), int(0.1*len(datap))), 'constant', constant_values=(0, 0))
+    env = np.sqrt(datap**2 + hb(datap)**2)
+    env = env[int(0.1*len(data)):-int(0.1*len(data))]
+    mean_noise = np.mean(env[:int(min_period/dt)])
+    #logger.info(f"mean noise: {mean_noise}")
+    plt.plot(env)
+    plt.plot(datap[int(0.1*len(data)):-int(0.1*len(data))])
+    plt.show()
+    on_off = np.where(env > np.max(env)*1e-1)[0][0]
+    #logger.info(f"signal: {on_off}")
+    on_off_noise = np.where(env[:on_off] > mean_noise*4)
+    if len(on_off_noise):
+        t0 = on_off * dt
+    else:
+        t0 = 0
+    # if len(on_off) and len(on_off_noise):
+    #     logger.info(f"A: {len(on_off[0])}")
+    #     logger.info(f"B: {len(on_off_noise[0])}")
+    #     if abs(on_off[0][0] - on_off_noise[0][0])*dt < 1.0:
+    #         t0 = on_off[0][0] * dt
+    #     else:
+    #         t0 = 0.0
+    # else:
+    #     t0 = 0.0
+    # plt.plot(env)
+    # plt.plot(datap[int(0.1*len(data)):-int(0.1*len(data))])
+    # plt.plot(t0 / dt, 0,'ro')
+    # plt.show()
+
+    return t0
                     
 
 
@@ -1248,7 +1318,7 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid,iteratio
     fft_stf = np.load(path_specfem_data + "/fft_stf.npy")
     nstation = len(syn_data)
     logger.info("Preparing syn data for source encoding")
-    fftsyn_full = np.zeros((len(freq),nstation),dtype=complex)
+    fftsyn_full = np.zeros((len(freq),nstation),dtype=np.complex128)
 
     path = os.path.join(path_scratch,"001","traces")
     t0_array = np.load(path + "/t0_array.npy")
@@ -1259,21 +1329,21 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid,iteratio
     for ir,tr_syn in enumerate(syn_data):
         dt = tr_syn.stats.delta
         ntss = se_ntss
-        #logger.info(f"{ntse}")
+        #logger.info(f"{ntss}")
         #logger.info(f"{dt}")
-        data_syn = tr_syn.data[-ntss:]
+        data_syn = np.float64(tr_syn.data[-ntss:])
 
         # gamma
         t0 = t0_array[:,ir]
         #for it0 in t0:
         data_syn *= np.exp(-1.0 * par['se_gamma'] * (np.arange(len(data_syn)) * dt 
-                                                   + dt * par['se_td'] / par['se_dwn']))
+                                                     + dt * par['se_td'] / par['se_dwn']),dtype=np.float64)
         
         
         fft_syn  = fft(data_syn)
         freq_syn = fftfreq(ntss,dt)
         # Compensating by TD transient duration
-        fft_syn *= np.exp(-1.0j * freq_syn * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'])
+        fft_syn *= np.exp(-1.0j * freq_syn * 2.0 * np.pi * dt * par['se_td'] / par['se_dwn'],dtype=np.complex128)
 
         # Compensate sin to cosine Ricker wavelet
         fft_syn *=  1.0j
@@ -1289,7 +1359,7 @@ def prepare_syn_data_se(path_scratch,path_specfem_data,syn_data,par,fid,iteratio
 
         #fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * np.exp(par['se_gamma'] * t0)
         if par['se_gamma_t0']:
-            fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0)
+            fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf * np.exp(par['se_gamma'] * t0,dtype=np.float64)
         else:
             fftsyn_full[:,ir] = fft_syn[freq_idx_glob] * fft_stf
         

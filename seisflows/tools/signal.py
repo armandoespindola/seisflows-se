@@ -49,9 +49,9 @@ def mask(slope, const, offset, nt, dt, length=400):
     win = win[0:length]
 
     # Caculate offsets
-    itmin = int(np.ceil((slope * abs(offset) + const) / dt)) - length / 2
-    itmax = itmin + length
-
+    itmin = int(np.ceil((slope * abs(offset) + const) / dt)) - int(length / 2)
+    itmax = itmin + int(length)
+    #logger.info(f'{itmin,itmax}')
     # Generate parts of the mask array based on offsets
     if 1 < itmin < itmax < nt:
         mask_arr[0:itmin] = 0.
@@ -88,18 +88,23 @@ def mute_arrivals(st, slope, const, choice):
     # Get the source and receiver coordinates and time info
     nt = st_out[0].stats.npts
     dt = st_out[0].stats.delta
-    s_coords = get_receiver_coords(st)
-    r_coords = get_receiver_coords(st)
-
+    #s_coords = get_receiver_coords(st)
+    sx, sy, sz = get_source_coords(st)
+    #r_coords = get_receiver_coords(st)
+    rx, ry, rz = get_receiver_coords(st)
+    #logger.info(f'{s_coords}')
     for i, tr in enumerate(st_out):
-        sx, sy, sz = s_coords[:][i]
-        rx, ry, rz = r_coords[:][i]
+        # sx, sy, sz = s_coords[:][i]
+        # rx, ry, rz = r_coords[:][i]
         # Determine the distance between source and receiver
-        offset = np.sqrt((rx - sx) ** 2 + (ry - sy) ** 2)
+        offset = np.sqrt((rx[i] - sx[i]) ** 2 + (ry[i] - sy[i]) ** 2)
+#        logger.info(f'{offset}')
         mask_arr = mask(slope=slope, const=const, offset=offset, nt=nt, dt=dt)
-        if choice == "early":
+        if choice == "EARLY":
+            #ogger.info(f'{mask_arr}')
+            #sys.exit()
             tr.data *= mask_arr
-        elif choice == "late":
+        elif choice == "LATE":
             tr.data *= 1 - mask_arr
 
     return st_out

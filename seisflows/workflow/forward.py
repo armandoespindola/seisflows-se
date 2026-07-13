@@ -335,8 +335,9 @@ class Forward:
         from seisflows.tools.specfem import setpar
         import glob
         import time
+        import pickle
 
-
+        
         seed_l = int(time.time())
         logger.info(f" --------> Seed <------- {seed_l}")
         random.seed(seed_l)
@@ -370,27 +371,57 @@ class Forward:
         
         se_nfreq = len(w_v)
 
-        r1 = int(se_nfreq / self.ntask)
-        r2 = se_nfreq % self.ntask
-        rdi=np.zeros(se_nfreq,dtype=int)
-        if r1==0: # nfreqs is smaller than self.ntask
-            # nevent_loc = int(self.ntask / self.se_nbands)
-            # nfreq_loc = int(se_nfreq / self.se_nbands )
-            # nfreq_loc_rm = se_nfreq % self.se_nbands
-            # for i in range(self.se_nbands):
-            #     events_local = []
-            #     idxs = random.sample(range(nevent_loc),nfreq_loc)
-            #     for ievent in idxs:
-            #         events_local.append(ievent + nevent_loc * i)
-            #     rdi[i * nfreq_loc : (i + 1) * nfreq_loc]  = \
-            #         random.sample(events_local , nfreq_loc)
-            # rdi[(i + 1 ) * nfreq_loc + np.arange(nfreq_loc_rm)] = random.sample(range(self.ntask), nfreq_loc_rm)
-            # rdi = rdi[random.sample(range(se_nfreq),se_nfreq)]
-            rdi = random.sample(range(self.ntask), r2)
-        else: # num_freqs is larger than nevents
-            for i in range(r1):
-                rdi[i * self.ntask : (i + 1) * self.ntask] = random.sample(range(self.ntask), self.ntask)
-                rdi[(i + 1 ) * self.ntask + np.arange(r2)] = random.sample(range(self.ntask), r2)
+        if seed == 1:
+            running_history = []
+        else:
+            f = open(self.path_specfem_data + "/history.pkl","rb")
+            running_history = pickle.load(f)
+            f.close()
+            
+        tags = list(np.arange(self.ntask))
+
+        logger.info(f"SEED ----------->>>>>>>   {seed - 1}")
+        rdi = get_tags_for_iteration_random(seed - 1,
+                                      history = running_history,
+                                      tags = tags,
+                                      num_slots = se_nfreq,
+                                      memory_depth = seed -1)
+
+        running_history.append(rdi)
+        f = open(self.path_specfem_data + "/history.pkl","wb")
+        running_history = pickle.dump(running_history,f)
+        f.close()
+
+
+
+        # OLD WAY TO ASSING FREQUENCIES
+        ###############
+        ###############
+        # r1 = int(se_nfreq / self.ntask)
+        # r2 = se_nfreq % self.ntask
+        # rdi=np.zeros(se_nfreq,dtype=int)
+        # if r1==0: # nfreqs is smaller than self.ntask
+        #     # nevent_loc = int(self.ntask / self.se_nbands)
+        #     # nfreq_loc = int(se_nfreq / self.se_nbands )
+        #     # nfreq_loc_rm = se_nfreq % self.se_nbands
+        #     # for i in range(self.se_nbands):
+        #     #     events_local = []
+        #     #     idxs = random.sample(range(nevent_loc),nfreq_loc)
+        #     #     for ievent in idxs:
+        #     #         events_local.append(ievent + nevent_loc * i)
+        #     #     rdi[i * nfreq_loc : (i + 1) * nfreq_loc]  = \
+        #     #         random.sample(events_local , nfreq_loc)
+        #     # rdi[(i + 1 ) * nfreq_loc + np.arange(nfreq_loc_rm)] = random.sample(range(self.ntask), nfreq_loc_rm)
+        #     # rdi = rdi[random.sample(range(se_nfreq),se_nfreq)]
+        #     rdi = random.sample(range(self.ntask), r2)
+        # else: # num_freqs is larger than nevents
+        #     for i in range(r1):
+        #         rdi[i * self.ntask : (i + 1) * self.ntask] = random.sample(range(self.ntask), self.ntask)
+        #         rdi[(i + 1 ) * self.ntask + np.arange(r2)] = random.sample(range(self.ntask), r2)
+
+        ###########
+        ###########
+        ###########
 
         # seed_idx = 1        
         # if seed > 1:
@@ -425,18 +456,22 @@ class Forward:
 
         # Decimating Source Time Function
         
-        stf = stf[::self.se_dwn]
+        stf = np.float64(stf[::self.se_dwn])
 
         if len(stf) < se_ntss:
-            stf = np.pad(stf,(0,se_ntss - len(stf)),constant_values=(0, 0))
-        stf *= np.exp(-1.0 * self.se_gamma * np.arange(len(stf)) * se_dt)
+            ksample = 1
+        else:
+            ksample = int(np.ceil(len(stf) / se_ntss))
+            
+        stf = np.pad(stf,(0,se_ntss * ksample - len(stf)),constant_values=(0, 0))
+        stf *= np.exp(-1.0 * self.se_gamma * np.arange(se_ntss * ksample) * se_dt,dtype=np.float64)
 
         # import matplotlib.pyplot as plt
         # plt.figure()
         # plt.plot(stf)
         # plt.show()
-
-        fft_stf = fft(stf[:se_ntss])[w_idx_glob]
+        fft_stf = fft(stf)[::ksample]
+        fft_stf = fft_stf[w_idx_glob]
         
         
         np.save(self.path_specfem_data + "/fft_stf",fft_stf)
@@ -465,7 +500,7 @@ class Forward:
                    val="10",
                    file=source_file + ".bak")
             setpar(key="factor",
-                   val="1.0000",
+                   val="1.0d0",
                    file=source_file + ".bak")
 
             f = open(source_file + ".bak",'r')
@@ -812,7 +847,75 @@ class Forward:
 
 
 
- 
 
 
+
+def get_tags_for_iteration_random(current_iteration, history, tags, num_slots, memory_depth):
+    """
+    Returns the slot assignments for a single iteration using true randomness.
+    
+    Parameters:
+    - current_iteration (int): The current loop index (0, 1, 2...).
+    - history (list of lists): Running log of past vectors.
+    - tags (list): Master list of all available tags.
+    - num_slots (int): EXACTLY how many slots your vector has.
+    - memory_depth (int): How many past rounds a slot remembers to avoid collisions.
+    """
+    import random
+    num_tags = len(tags)
+    
+    # --- STEP 1: Dynamically determine the available pool of tags ---
+    if current_iteration == 0 or not history:
+        # First iteration: all tags are fresh and available
+        available_pool = tags.copy()
+    else:
+        # Flatten history to see what tags have been played recently
+        flat_history = [tag for round_slots in history for tag in round_slots]
+        
+        # Calculate how many tags have been used since the last theoretical deck reset
+        used_in_current_cycle = len(flat_history) % num_tags
+        
+        if used_in_current_cycle == 0:
+            available_pool = tags.copy()
+        else:
+            # Identify which tags are still waiting for a turn
+            recent_tags = set(flat_history[-used_in_current_cycle:])
+            available_pool = [tag for tag in tags if tag not in recent_tags]
+            
+    # CRITICAL FIX: If our available tag pool is smaller than the number of slots 
+    # we need to fill, keep adding shuffled tag decks until we have enough!
+    while len(available_pool) < num_slots:
+        fresh_deck = tags.copy()
+        random.shuffle(fresh_deck)
+        available_pool.extend(fresh_deck)
+
+    # --- STEP 2: Randomly draw exactly 'num_slots' tags from our active pool ---
+    random.shuffle(available_pool)
+    current_round_tags = [available_pool.pop(0) for _ in range(num_slots)]
+
+    # --- STEP 3: Optimize slot placement using memory_depth to minimize repetition ---
+    current_slots = [None] * num_slots
+    available_slots = list(range(num_slots))
+    
+    for tag in current_round_tags:
+        best_slot = None
+        min_penalty = float('inf')
+        
+        for slot_idx in available_slots:
+            penalty = 0
+            lookback_limit = max(0, current_iteration - memory_depth)
+            
+            for history_idx in range(current_iteration - 1, lookback_limit - 1, -1):
+                if history[history_idx][slot_idx] == tag:
+                    steps_ago = current_iteration - history_idx
+                    penalty += (memory_depth - steps_ago + 1)
+            
+            if penalty < min_penalty:
+                min_penalty = penalty
+                best_slot = slot_idx
+        
+        current_slots[best_slot] = tag
+        available_slots.remove(best_slot)
+        
+    return current_slots
 

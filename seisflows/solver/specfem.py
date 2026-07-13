@@ -625,11 +625,18 @@ class Specfem:
         unix.cd(self.kernel_databases)
 
         if not adjoint_q:
-            for tag in ["alpha", "alpha[hv]", "reg?_alpha", "reg?_alpha[hv]"]:
-                names = glob(self.model_wildcard(par=tag, kernel=True))
-                if names:
-                    logger.debug(f"renaming output event kernels: '{tag}' -> 'vp'")
-                    unix.rename(old="alpha", new="vp", names=names)
+            if self.materials.upper() == "ELASTIC":
+                for tag in ["alpha", "alpha[hv]", "reg?_alpha", "reg?_alpha[hv]"]:
+                    names = glob(self.model_wildcard(par=tag, kernel=True))
+                    if names:
+                        logger.debug(f"renaming output event kernels: '{tag}' -> 'vp'")
+                        unix.rename(old="alpha", new="vp", names=names)
+            elif self.materials.upper() == "ACOUSTIC":
+                for tag in ["alpha", "alpha[hv]", "reg?_alpha", "reg?_alpha[hv]","c_acoustic"]:
+                    names = glob(self.model_wildcard(par=tag, kernel=True))
+                    if names:
+                        logger.debug(f"renaming output event kernels: '{tag}' -> 'vp'")
+                        unix.rename(old="c_acoustic", new="vp", names=names)
 
             for tag in ["beta", "beta[hv]", "reg?_beta", "reg?_beta[hv]"]:
                 names = glob(self.model_wildcard(par=tag, kernel=True))
@@ -637,6 +644,19 @@ class Specfem:
                     logger.debug(f"renaming output event kernels: '{tag}' -> 'vs'")
                     unix.rename(old="beta", new="vs", names=names)
 
+            for tag in ["rhop"]:
+                if self.materials.upper() == "ELASTIC":
+                    names = glob(self.model_wildcard(par=tag, kernel=True))
+                    if names:
+                        logger.debug(f"renaming output event kernels: '{tag}' -> 'rho'")
+                        unix.rename(old="rhop", new="rho", names=names)
+                elif self.materials.upper() == "ACOUSTIC":
+                    tag += "_acoustic"
+                    names = glob(self.model_wildcard(par=tag, kernel=True))
+                    if names:
+                        logger.debug(f"renaming output event kernels: '{tag}' -> 'rho'")
+                        unix.rename(old="rhop_acoustic", new="rho", names=names)
+                        
         elif adjoint_q:
             for tag in ["mu", "reg?_mu", "reg?_mu"]:
             #for tag in ["beta", "beta[hv]", "reg?_beta", "reg?_beta[hv]"]:
@@ -654,15 +674,13 @@ class Specfem:
 
 
         unix.mkdir(self.path.eval_grad + "/H_nosmooth")
-        unix.mkdir(self.path.eval_grad + "/Hessian")
-        for par in self._parameters[:2]:
-                    unix.cp(src=glob(self.model_wildcard(par=par, kernel=True)),
-                            dst=self.path.eval_grad + "/H_nosmooth")
+        unix.mkdir(self.path.eval_grad + "/Hessian")    
 
         if save_kernels:
             unix.mkdir(save_kernels)
             if adjoint_q == False:
-                for par in self._parameters[:2]:
+                #logger.info(f'{self._parameters}')
+                for par in self._parameters:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
             elif adjoint_q:
@@ -670,6 +688,27 @@ class Specfem:
                 for par in [self._parameters[-1]]:
                     unix.mv(src=glob(self.model_wildcard(par=par, kernel=True)),
                             dst=save_kernels)
+            unix.mkdir(save_kernels.replace("kernels","H_nosmooth"))
+
+
+            
+            if self.materials.upper() == "ELASTIC":
+                unix.cp(src=glob(self.model_wildcard(par="Hessian2", kernel=True)),
+                        dst=save_kernels.replace("kernels","H_nosmooth"))
+            elif self.materials.upper() == "ACOUSTIC":
+                unix.cp(src=glob(self.model_wildcard(par="Hessian2_acoustic", kernel=True)),
+                        dst=save_kernels.replace("kernels","H_nosmooth"))
+
+            path_h = save_kernels.replace("kernels","H_nosmooth")
+            for ifile in glob(os.path.join(path_h,"*Hessian2_*")):
+                for parameters in self._parameters:
+                    if self.materials.upper() == "ACOUSTIC":
+                        ifile2 = ifile.replace("Hessian2_acoustic_kernel",parameters + "_kernel")
+                    elif self.materials.upper() == "ELASTIC":
+                        ifile2 = ifile.replace("Hessian2_kernel",parameters + "_kernel")
+                    unix.cp(src=ifile,dst=ifile2)
+                    #logger.info(f"--->>>>>{ifile},{ifile2}")
+                unix.rm(ifile)
 
         # unix.mkdir(self.path.eval_grad + "/H_nosmooth")
         # unix.mkdir(self.path.eval_grad + "/Hessian")

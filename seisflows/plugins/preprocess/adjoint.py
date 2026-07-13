@@ -43,7 +43,8 @@ def waveform(syn, obs, *args, **kwargs):
 
 def se_waveform(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
+                rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False,
+                tka=1.0,gamma_t0=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -62,7 +63,7 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
     fft_wadj = np.zeros(nt_se, dtype=complex)
     omega = 2.0 * np.pi * freq
     
-    residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* t0_array
+    residual *= -1j * np.conj(fft_stf) * np.exp(1j * omega * se_td * se_dt) * np.exp(gamma * t0_array) #* np.sqrt(t0_array)
 
     #residual *= 1.0 * np.exp(gamma * t0_array) #* t0_array
 
@@ -75,14 +76,18 @@ def se_waveform(syn, obs, se_t, se_td, se_tse,
         
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
     wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt))
-    ntaper = np.int(0.025 * nt) # 5% taper
-    wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
+    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+    #ntaper = np.int(0.025 * nt) # 5% taper
+    #wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
     
     # plt.figure()
     # plt.plot(wadj,'b-')
     # plt.show()
 
     return wadj #* 1e+15
+
+
+
 
 
 
@@ -135,7 +140,7 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     # amp_syn = np.abs(syn * 1j * omega)
 
     amp_syn = np.abs(syn)
-    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+    amp_syn[amp_syn < np.max(amp_syn) * 5e-3] = 0.0
 
     
     phase = np.angle(syn)
@@ -156,7 +161,7 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
         tw += abs(np.min(tw))
     tw = tw**0.5
     
-    residual *= np.exp(1j * omega * se_td * se_dt)
+    residual *= np.exp(1j * omega * se_td * se_dt) #* tw * tka
     
     if gamma_t0:
         residual *= np.exp(gamma * t0_array)
@@ -171,9 +176,9 @@ def se_phase_exp(syn, obs, se_t, se_td, se_tse,
     wadj = np.real(ifft(fft_wadj))
     #wadj[:] = 1.0     
     wadj = np.tile(wadj, int(np.ceil(nt / nt_se)))[:nt]
-    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
+    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt + se_td * se_dt))
 
-    #wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
+    wadj *= np.exp(-1.0 * gamma * (np.arange(len(wadj)) * se_dt)) # + se_td * se_dt))
 
     # ntaper = np.int(0.025 * nt) # 5% taper
     # wadj[-ntaper:] *= np.hanning(2 * ntaper)[ntaper:]
@@ -224,7 +229,7 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
 
     
     # Arm: I added a threshold for smaller amplitudes
-    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+    amp_syn[amp_syn < np.max(amp_syn) * 5e-3] = 0.0
 
     phase = np.angle(syn)
 
@@ -269,7 +274,8 @@ def se_phase(syn, obs, se_t, se_td, se_tse,
 
 def se_amplitude(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
+                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False,
+                 tka=1.0,gamma_t0=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -303,13 +309,16 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
 
     # Arm: I added a threshold for smaller amplitudes
     amp_syn = np.abs(syn)
-    amp_syn[amp_syn < np.max(amp_syn) * 1e-2] = 0.0
+    amp_syn[amp_syn < np.max(amp_syn) * 5e-3] = 0.0
     
     # Arm: I modified the misfit definition from amp_syn**2 to amp_syn. This stabilize the inversion.
     residual = np.divide(residual, amp_syn, out=np.zeros_like(residual), where=amp_syn!=0)
 
     residual *= np.exp(1j * omega * se_td * se_dt)
-    residual *= np.exp(gamma * t0_array) #* t0_array
+
+    if gamma_t0:
+        residual *= np.exp(gamma * t0_array) #* t0_array
+        
     fft_wadj[freq_idx] = residual
     fft_wadj[-freq_idx] = np.conj(residual)
     wadj = np.real(ifft(fft_wadj))
@@ -335,9 +344,10 @@ def se_amplitude(syn, obs, se_t, se_td, se_tse,
 
 
 
-def se_amp_phase(syn, obs, se_t, se_td, se_tse,
+def se_amp_phase_exp(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False):
+                 rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff=False,
+                 tka=1.0,gamma_t0=False):
     """
     :type syn: np.array
     :param syn: synthetic data array
@@ -347,11 +357,13 @@ def se_amp_phase(syn, obs, se_t, se_td, se_tse,
 
     amp_adj = se_amplitude(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                           rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff)
+                           rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff,
+                           tka,gamma_t0)
 
-    phase_adj = se_phase(syn, obs, se_t, se_td, se_tse,
+    phase_adj = se_phase_exp(syn, obs, se_t, se_td, se_tse,
                 se_dt, nt_se,freq, freq_idx,
-                         rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff)
+                         rdi, fft_stf,gamma,t0_array,Wp,dd_r,dd_diff,
+                         tka,gamma_t0)
 
     wadj =  amp_adj + phase_adj
     

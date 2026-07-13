@@ -302,8 +302,10 @@ class Gradient:
                 diag /= np.max(diag)
 
                 #diag[abs(diag) < 0.1] = 0.1
-                diag = 1.0 / diag
+                diag = 1.0 / (diag + 1e-1)
+                logger.info(f"Hessian min {np.min(diag)} and max {np.max(diag)}")
                 return diag * q
+            
             else:
                 raise NotImplementedError(
                     f"preconditioner {self.preconditioner} not supported"

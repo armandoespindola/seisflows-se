@@ -222,7 +222,7 @@ class Migration(Forward):
                 p_old = 0.0 
                 kernels = parameters + "_kernel"
                 for iproc in range(len(gradient.model[kernels])):
-                    p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),98.0)
+                    p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),99.5)
                     if p_old < p_new:
                         p_old = p_new
                 for iproc in range(len(gradient.model[kernels])):
@@ -236,36 +236,55 @@ class Migration(Forward):
         def normalize_hessian():
             import numpy as np
 
-            # gradient = Model(path=os.path.join(self.path.eval_grad, "H_nosmooth")
+            logger.info(msg.mnr("NORMALIZE HESSIAN"))
+
+            gradient = Model(path=os.path.join(self.path.eval_grad, "H_nosmooth")
+                             ,regions=self.solver._regions)
+
+
+            p_old = 0.0 
+            for parameters in self.solver._parameters:
+                kernels = parameters + "_kernel"
+                for iproc in range(len(gradient.model[kernels])):
+                    #p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),99.5)
+                    p_new = np.max(np.abs(gradient.model[kernels][iproc]))
+                    if p_old < p_new:
+                        p_old = p_new
+
+            logger.info(f'max val hessian {p_old}')
+
+
+            gradient.update(vector=np.abs(gradient.vector) / p_old)
+                    
+            gradient.write(path=os.path.join(self.path.eval_grad, "H_nosmooth"))
+
+
+            
+            p_old = 0.0 
+            for parameters in self.solver._parameters:
+                kernels = parameters + "_kernel"
+                for iproc in range(len(gradient.model[kernels])):
+                    #p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),99.5)
+                    p_new = np.max(np.abs(gradient.model[kernels][iproc]))
+                    if p_old < p_new:
+                        p_old = p_new
+
+            logger.info(f'max val hessian (after normalization) {p_old}')
+            
+            # gradient = Model(path=os.path.join(self.path.eval_grad, "misfit_kernel")
             #                  ,regions=self.solver._regions)
 
             # for parameters in self.solver._parameters:
             #     p_old = 0.0 
             #     kernels = parameters + "_kernel"
             #     for iproc in range(len(gradient.model[kernels])):
-            #         p_new = np.percentile(np.abs(gradient.model[kernels][iproc]),98.0)
+            #         p_new = np.max(np.abs(gradient.model[kernels][iproc]))
             #         if p_old < p_new:
             #             p_old = p_new
             #     for iproc in range(len(gradient.model[kernels])):
-            #         idx = np.where(np.abs(gradient.model[kernels][iproc]) > p_old)
-            #         gradient.model[kernels][iproc][idx] = 0.0
-                    
-            # gradient.write(path=os.path.join(self.path.eval_grad, "H_nosmooth"))
-            
-            gradient = Model(path=os.path.join(self.path.eval_grad, "misfit_kernel")
-                             ,regions=self.solver._regions)
-
-            for parameters in self.solver._parameters:
-                p_old = 0.0 
-                kernels = parameters + "_kernel"
-                for iproc in range(len(gradient.model[kernels])):
-                    p_new = np.max(np.abs(gradient.model[kernels][iproc]))
-                    if p_old < p_new:
-                        p_old = p_new
-                for iproc in range(len(gradient.model[kernels])):
-                    idx = np.where(np.abs(gradient.model[kernels][iproc]) < p_old * 5e-2)
-                    gradient.model[kernels][iproc][idx] = abs(p_old) * 5e-2
-                gradient.model[kernels][:][:] = np.abs(gradient.model[kernels][:][:])
+            #         idx = np.where(np.abs(gradient.model[kernels][iproc]) < p_old * 5e-2)
+            #         gradient.model[kernels][iproc][idx] = abs(p_old) * 5e-2
+            #     gradient.model[kernels][:][:] = np.abs(gradient.model[kernels][:][:])
                     
                     
             gradient.write(path=os.path.join(self.path.eval_grad, "H_nosmooth"))
@@ -279,6 +298,12 @@ class Migration(Forward):
                 input_path=os.path.join(self.path.eval_grad, "kernels"),
                 output_path=os.path.join(self.path.eval_grad, "misfit_kernel")
             )
+
+            if self.kargs['preconditioner'] is not None:
+                self.solver.combine(
+                    input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
+                    output_path=os.path.join(self.path.eval_grad, "H_nosmooth")
+                )   
 
         def smooth_misfit_kernel():
             """Smooth the output misfit kernel"""
@@ -308,26 +333,38 @@ class Migration(Forward):
                             span_h = self.kargs['smooth_v'] * 4,
                             span_v = self.kargs['smooth_v'] * 4, parameters= ['Hessian1'])
                     else:
-                        gradient = Model(path=os.path.join(self.path.eval_grad,"H_nosmooth"), regions=self.solver._regions)
-                        for parameters in self.solver._parameters:
-                            kernels = parameters + "_kernel"
-                            gradient.model[kernels][:][:] = abs(gradient.model[kernels][:][:])
-                        gradient.write(path=os.path.join(self.path.eval_grad,"H_nosmooth"))
+                #         logger.info(f"--->>>>> {self.source_name}")
+                #         for ifile in glob(os.path.join(self.path.eval_grad,"H_nosmooth/"
+                #                                        f"{self.source_name}"+"*Hessian2_*")):
+                #             for parameters in self.solver._parameters:
+                #                 if self.materials.upper() == "ACOUSTIC":
+                #                     ifile2 = ifile.replace("Hessian2_acoustic_kernel",parameters + "_kernel")
+                #                 elif self.materials.upper() == "ELASTIC":
+                #                     ifile2 = ifile.replace("Hessian2_kernel",parameters + "_kernel")
+                #                 unix.cp(src=ifile,dst=ifile2)
+                #                 logger.info(f"--->>>>>{ifile},{ifile2}")
+                #                 unix.rm(ifile)
+                                
+                #         gradient = Model(path=os.path.join(self.path.eval_grad,"H_nosmooth"), regions=self.solver._regions)
+                #         for parameters in self.solver._parameters:
+                #             kernels = parameters + "_kernel"
+                #             gradient.model[kernels][:][:] = abs(gradient.model[kernels][:][:])
+                #         gradient.write(path=os.path.join(self.path.eval_grad,"H_nosmooth"))
                         
                         self.solver.smooth(
                             input_path=os.path.join(self.path.eval_grad, "H_nosmooth"),
                             output_path=os.path.join(self.path.eval_grad,
                                                      "Hessian"),
-                            span_h = self.kargs['smooth_v'] * 10,
-                            span_v = self.kargs['smooth_v'] * 10)
+                            span_h = self.kargs['smoothH_h'],
+                            span_v = self.kargs['smoothH_v'])
                     
-                    if self.kargs['preconditioner'] == 'DIAGONAL':
-                        for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
-                            for parameters in self.solver._parameters:
-                                ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
-                                unix.cp(src=ifile,dst=ifile2)
-                                #logger.info(ifile,ifile2)
-                                unix.rm(ifile)
+                #     if self.kargs['preconditioner'] == 'DIAGONAL':
+                #         for ifile in glob(os.path.join(self.path.eval_grad,"Hessian/*Hessian1_*")):
+                #             for parameters in self.solver._parameters:
+                #                 ifile2 = ifile.replace("Hessian1_kernel",parameters + "_kernel")
+                #                 unix.cp(src=ifile,dst=ifile2)
+                #                 #logger.info(ifile,ifile2)
+                #                 unix.rm(ifile)
                 
 
                 
@@ -343,7 +380,7 @@ class Migration(Forward):
         self.system.run([combine_event_kernels],
                         single=True)
 
-        percentile_kernel()
+        #percentile_kernel()
         normalize_hessian()
 
         self.system.run([smooth_misfit_kernel],
